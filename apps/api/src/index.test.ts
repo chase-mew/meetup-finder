@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseCoord } from "./index";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import app, { parseCoord } from "./index";
 
 describe("parseCoord", () => {
   it("parses valid coordinates", () => {
@@ -28,5 +28,71 @@ describe("parseCoord", () => {
     expect(parseCoord("abc", 90)).toBeNull();
     expect(parseCoord("NaN", 90)).toBeNull();
     expect(parseCoord("Infinity", 90)).toBeNull();
+  });
+});
+
+const KEY = "test-key";
+
+function searchBody(overrides: Record<string, unknown> = {}) {
+  return JSON.stringify({
+    origins: [
+      { id: "a", location: { lat: 51.5308, lng: -0.1238 } },
+      { id: "b", location: { lat: 51.5036, lng: -0.1144 } },
+    ],
+    category: "cafe",
+    mode: "transit",
+    ...overrides,
+  });
+}
+
+function post(body: string, env: Record<string, unknown> = { GOOGLE_MAPS_API_KEY: KEY }) {
+  return app.request(
+    "/api/search",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body },
+    env,
+  );
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("worker error handling", () => {
+  it("serves health", async () => {
+    const res = await app.request("/api/health");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, service: "meetup-finder-api" });
+  });
+
+  it("returns a hidden config error when the API key is missing", async () => {
+    const res = await post(searchBody(), {});
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: string; code: string };
+    expect(body.code).toBe("config_error");
+    expect(body.error).not.toContain("GOOGLE_MAPS_API_KEY");
+  });
+
+  it("returns a validation error for invalid JSON", async () => {
+    const res = await post("{ not json");
+    expect(res.status).toBe(400);
+    expect((await res.json()) as { code: string }).toMatchObject({ code: "validation_error" });
+  });
+
+  it("returns a validation error for a bad body", async () => {
+    const res = await post(searchBody({ origins: [{ id: "a", location: { lat: 1, lng: 1 } }] }));
+    expect(res.status).toBe(400);
+    expect((await res.json()) as { code: string }).toMatchObject({ code: "validation_error" });
+  });
+
+  it("maps an upstream provider failure to a 502 provider error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network down");
+      }),
+    );
+    const res = await post(searchBody());
+    expect(res.status).toBe(502);
+    expect((await res.json()) as { code: string }).toMatchObject({ code: "provider_error" });
   });
 });

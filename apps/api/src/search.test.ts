@@ -117,5 +117,32 @@ describe("runSearch", () => {
   it("returns no venues when the places provider finds nothing", async () => {
     const result = await runSearch({ places: fakePlaces([]), travel: fakeTravel() }, baseBody);
     expect(result.venues).toEqual([]);
+    expect(result.unreachableOrigins).toEqual([]);
+  });
+
+  it("flags an origin that cannot reach any returned venue", async () => {
+    // Like fakeTravel, but the second origin (index 1) never has a route.
+    const travel: TravelProvider = {
+      matrix: vi.fn(async (req: TravelMatrixRequest) => {
+        const cells = [];
+        for (let oi = 0; oi < req.origins.length; oi += 1) {
+          for (let di = 0; di < req.destinations.length; di += 1) {
+            const reachable = oi !== 1;
+            const meters = haversineMeters(req.origins[oi]!, req.destinations[di]!);
+            cells.push({
+              originIndex: oi,
+              destinationIndex: di,
+              durationSeconds: reachable ? Math.round(meters / 5) : null,
+              distanceMeters: reachable ? Math.round(meters) : null,
+            });
+          }
+        }
+        return { origins: req.origins.length, destinations: req.destinations.length, cells };
+      }),
+    };
+
+    const result = await runSearch({ places: fakePlaces(), travel }, baseBody);
+    expect(result.venues.length).toBeGreaterThan(0);
+    expect(result.unreachableOrigins).toEqual(["b"]);
   });
 });
