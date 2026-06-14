@@ -21,6 +21,9 @@ const sampleState: SearchUrlState = {
   meetTime: "19:30",
   excludeBuses: false,
   transitRouting: "any",
+  priceLevels: [1, 2],
+  minRating: 4,
+  cuisines: ["Indian", "Thai"],
 };
 
 describe("encode then decode round trip", () => {
@@ -96,6 +99,9 @@ describe("decodeSearchState", () => {
       meetTime: "",
       excludeBuses: false,
       transitRouting: "any",
+      priceLevels: [],
+      minRating: 0,
+      cuisines: [],
     });
   });
 
@@ -121,6 +127,36 @@ describe("decodeSearchState", () => {
   it("falls back to a known transit routing when unknown", () => {
     const decoded = decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&troute=warp");
     expect(decoded?.transitRouting).toBe("any");
+  });
+
+  it("round trips price levels, minimum rating, and cuisines", () => {
+    const state: SearchUrlState = {
+      ...sampleState,
+      priceLevels: [2, 3, 4],
+      minRating: 4.5,
+      cuisines: ["Italian", "Japanese"],
+    };
+    expect(decodeSearchState(encodeSearchState(state))).toEqual(state);
+  });
+
+  it("keeps cuisine hints that contain spaces", () => {
+    const state: SearchUrlState = {
+      ...sampleState,
+      cuisines: ["Middle Eastern", "Fish and chips"],
+    };
+    expect(decodeSearchState(encodeSearchState(state))).toEqual(state);
+  });
+
+  it("ignores invalid price levels and dedupes", () => {
+    const decoded = decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&price=2,2,5,banana,3");
+    expect(decoded?.priceLevels).toEqual([2, 3]);
+  });
+
+  it("clamps and snaps the minimum rating to the 0.5 cadence", () => {
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rating=9")?.minRating).toBe(5);
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rating=3.7")?.minRating).toBe(3.5);
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rating=0")?.minRating).toBe(0);
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rating=foo")?.minRating).toBe(0);
   });
 
   it("falls back to defaults when enum values are unknown", () => {

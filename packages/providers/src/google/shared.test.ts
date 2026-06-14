@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildTextQuery,
   categoryToTextQuery,
   matchesCategoryPrimaryType,
   parseDurationSeconds,
@@ -14,6 +15,26 @@ describe("categoryToTextQuery", () => {
     expect(categoryToTextQuery("dinner")).toContain("restaurant");
     expect(categoryToTextQuery("pub")).toBe("pub");
     expect(categoryToTextQuery("park")).toBe("park");
+  });
+});
+
+describe("buildTextQuery", () => {
+  it("returns the base category query when no cuisines are given", () => {
+    expect(buildTextQuery("dinner")).toBe("dinner restaurant");
+    expect(buildTextQuery("dinner", [])).toBe("dinner restaurant");
+  });
+
+  it("prepends a single cuisine hint", () => {
+    expect(buildTextQuery("dinner", ["indian"])).toBe("indian dinner restaurant");
+  });
+
+  it("joins multiple cuisines with or", () => {
+    expect(buildTextQuery("lunch", ["indian", "thai"])).toBe("indian or thai lunch restaurant");
+  });
+
+  it("trims and ignores blank cuisine entries", () => {
+    expect(buildTextQuery("dinner", ["  ", ""])).toBe("dinner restaurant");
+    expect(buildTextQuery("dinner", [" indian "])).toBe("indian dinner restaurant");
   });
 });
 

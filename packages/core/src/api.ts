@@ -33,6 +33,21 @@ export interface SearchRequestBody {
   meetTime?: string;
   /** Optional transit preferences, applied only when mode is transit. */
   transit?: TransitPreferences;
+  /**
+   * Restrict results to these Google price levels, 1 (inexpensive) to 4 (very
+   * expensive). An omitted or empty list applies no price filtering.
+   */
+  priceLevels?: number[];
+  /**
+   * Only consider venues rated at least this highly, from 0 to 5 in 0.5 steps.
+   * Omitted or 0 applies no rating floor.
+   */
+  minRating?: number;
+  /**
+   * Cuisine or keyword hints (e.g. "indian", "thai") that bias the venue
+   * search. Only meaningful for food categories such as lunch and dinner.
+   */
+  cuisines?: string[];
 }
 
 /** Travel detail for one person to one venue. */

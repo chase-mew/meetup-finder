@@ -168,6 +168,9 @@ export function App() {
   const [ratingWeight, setRatingWeight] = useState<number>(SEARCH_DEFAULTS.ratingWeight);
   const [limit, setLimit] = useState<number>(SEARCH_DEFAULTS.limit);
   const [openNow, setOpenNow] = useState(false);
+  const [priceLevels, setPriceLevels] = useState<number[]>([]);
+  const [minRating, setMinRating] = useState(0);
+  const [cuisines, setCuisines] = useState<string[]>([]);
   const [meetTime, setMeetTime] = useState("");
   const [excludeBuses, setExcludeBuses] = useState(false);
   const [transitRouting, setTransitRouting] = useState<TransitRoutingChoice>("any");
@@ -312,6 +315,9 @@ export function App() {
       ratingWeight: number;
       limit: number;
       openNow: boolean;
+      priceLevels: number[];
+      minRating: number;
+      cuisines: string[];
       meetTime: string;
       excludeBuses: boolean;
       transitRouting: TransitRoutingChoice;
@@ -326,6 +332,7 @@ export function App() {
     }
 
     const usesMeetTime = options.category === "lunch" || options.category === "dinner";
+    const usesCuisine = options.category === "lunch" || options.category === "dinner";
     const body: SearchRequestBody = {
       origins,
       category: options.category,
@@ -335,6 +342,9 @@ export function App() {
       ratingWeight: Number(options.ratingWeight.toFixed(2)),
       limit: options.limit,
       openNow: options.openNow,
+      priceLevels: options.priceLevels.length > 0 ? options.priceLevels : undefined,
+      minRating: options.minRating > 0 ? options.minRating : undefined,
+      cuisines: usesCuisine && options.cuisines.length > 0 ? options.cuisines : undefined,
       meetTime: usesMeetTime && options.meetTime ? options.meetTime : undefined,
       transit: buildTransitPreferences(options.mode, options.excludeBuses, options.transitRouting),
     };
@@ -353,6 +363,9 @@ export function App() {
         ratingWeight: options.ratingWeight,
         limit: options.limit,
         openNow: options.openNow,
+        priceLevels: options.priceLevels,
+        minRating: options.minRating,
+        cuisines: options.cuisines,
         meetTime: options.meetTime,
         excludeBuses: options.excludeBuses,
         transitRouting: options.transitRouting,
@@ -400,6 +413,9 @@ export function App() {
       ratingWeight,
       limit,
       openNow,
+      priceLevels,
+      minRating,
+      cuisines,
       meetTime,
       excludeBuses,
       transitRouting,
@@ -424,6 +440,9 @@ export function App() {
     setRatingWeight(urlState.ratingWeight);
     setLimit(urlState.limit);
     setOpenNow(urlState.openNow);
+    setPriceLevels(urlState.priceLevels);
+    setMinRating(urlState.minRating);
+    setCuisines(urlState.cuisines);
     setMeetTime(urlState.meetTime);
     setExcludeBuses(urlState.excludeBuses);
     setTransitRouting(urlState.transitRouting);
@@ -432,6 +451,9 @@ export function App() {
       urlState.ratingWeight !== SEARCH_DEFAULTS.ratingWeight ||
       urlState.limit !== SEARCH_DEFAULTS.limit ||
       urlState.openNow ||
+      urlState.priceLevels.length > 0 ||
+      urlState.minRating > 0 ||
+      urlState.cuisines.length > 0 ||
       urlState.meetTime ||
       urlState.excludeBuses ||
       urlState.transitRouting !== "any"
@@ -455,6 +477,9 @@ export function App() {
         ratingWeight: urlState.ratingWeight,
         limit: urlState.limit,
         openNow: urlState.openNow,
+        priceLevels: urlState.priceLevels,
+        minRating: urlState.minRating,
+        cuisines: urlState.cuisines,
         meetTime: urlState.meetTime,
         excludeBuses: urlState.excludeBuses,
         transitRouting: urlState.transitRouting,
@@ -539,6 +564,12 @@ export function App() {
                 onLimit={setLimit}
                 openNow={openNow}
                 onOpenNow={setOpenNow}
+                priceLevels={priceLevels}
+                onPriceLevels={setPriceLevels}
+                minRating={minRating}
+                onMinRating={setMinRating}
+                cuisines={cuisines}
+                onCuisines={setCuisines}
                 category={category}
                 meetTime={meetTime}
                 onMeetTime={setMeetTime}

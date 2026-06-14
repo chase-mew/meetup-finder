@@ -3,7 +3,7 @@ import type { PlacesProvider } from "../interfaces";
 import type { Place, PlacesSearchRequest } from "../types";
 import {
   type GoogleProviderOptions,
-  categoryToTextQuery,
+  buildTextQuery,
   matchesCategoryPrimaryType,
   readError,
   resolveFetch,
@@ -84,6 +84,29 @@ function mapPriceLevel(value: string | undefined): number | undefined {
     return undefined;
   }
   return PRICE_LEVELS[value];
+}
+
+/** Google price level enum names keyed by our 1..4 numeric scale. */
+const PRICE_LEVEL_NAMES: Record<number, string> = {
+  1: "PRICE_LEVEL_INEXPENSIVE",
+  2: "PRICE_LEVEL_MODERATE",
+  3: "PRICE_LEVEL_EXPENSIVE",
+  4: "PRICE_LEVEL_VERY_EXPENSIVE",
+};
+
+/** Map our numeric price levels onto the enum names the Places API expects. */
+function toPriceLevelEnums(levels: number[] | undefined): string[] {
+  if (!levels) {
+    return [];
+  }
+  const names = new Set<string>();
+  for (const level of levels) {
+    const name = PRICE_LEVEL_NAMES[level];
+    if (name) {
+      names.add(name);
+    }
+  }
+  return [...names];
 }
 
 function isIntInRange(value: unknown, min: number, max: number): value is number {
@@ -174,7 +197,7 @@ export class GooglePlacesProvider implements PlacesProvider {
     const maxPages = Math.min(Math.max(requestedPages, 1), MAX_PAGES);
 
     const baseBody: Record<string, unknown> = {
-      textQuery: categoryToTextQuery(request.category),
+      textQuery: buildTextQuery(request.category, request.cuisines),
       pageSize: 20,
       languageCode: "en",
       locationRestriction: {
@@ -183,6 +206,14 @@ export class GooglePlacesProvider implements PlacesProvider {
     };
     if (request.openNow) {
       baseBody.openNow = true;
+    }
+    const priceLevels = toPriceLevelEnums(request.priceLevels);
+    if (priceLevels.length > 0) {
+      baseBody.priceLevels = priceLevels;
+    }
+    if (typeof request.minRating === "number" && request.minRating > 0) {
+      // The Places API accepts ratings on a 0.5 cadence; round to the nearest.
+      baseBody.minRating = Math.round(request.minRating * 2) / 2;
     }
 
     const collected: Place[] = [];

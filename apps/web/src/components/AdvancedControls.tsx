@@ -16,6 +16,37 @@ const TRANSIT_ROUTING: Array<{ value: TransitRoutingChoice; label: string }> = [
   { value: "less_walking", label: "Less walking" },
 ];
 
+const PRICE_LEVELS: Array<{ value: number; label: string; hint: string }> = [
+  { value: 1, label: "£", hint: "Inexpensive" },
+  { value: 2, label: "££", hint: "Moderate" },
+  { value: 3, label: "£££", hint: "Expensive" },
+  { value: 4, label: "££££", hint: "Very expensive" },
+];
+
+const MIN_RATINGS: Array<{ value: number; label: string }> = [
+  { value: 0, label: "Any rating" },
+  { value: 3, label: "3.0+" },
+  { value: 3.5, label: "3.5+" },
+  { value: 4, label: "4.0+" },
+  { value: 4.5, label: "4.5+" },
+];
+
+/** Common cuisine hints offered for food searches. */
+const CUISINES: string[] = [
+  "Indian",
+  "Italian",
+  "Chinese",
+  "Thai",
+  "Japanese",
+  "Mexican",
+  "American",
+  "Mediterranean",
+  "Korean",
+  "Vietnamese",
+  "Turkish",
+  "French",
+];
+
 interface AdvancedControlsProps {
   objective: Objective;
   onObjective: (value: Objective) => void;
@@ -25,6 +56,12 @@ interface AdvancedControlsProps {
   onLimit: (value: number) => void;
   openNow: boolean;
   onOpenNow: (value: boolean) => void;
+  priceLevels: number[];
+  onPriceLevels: (value: number[]) => void;
+  minRating: number;
+  onMinRating: (value: number) => void;
+  cuisines: string[];
+  onCuisines: (value: string[]) => void;
   category: VenueCategory;
   meetTime: string;
   onMeetTime: (value: string) => void;
@@ -41,6 +78,20 @@ const MEAL_CATEGORIES: VenueCategory[] = ["lunch", "dinner"];
 export function AdvancedControls(props: AdvancedControlsProps) {
   const travelPct = Math.round((1 - props.ratingWeight) * 100);
   const ratingPct = Math.round(props.ratingWeight * 100);
+
+  function togglePrice(level: number) {
+    const next = props.priceLevels.includes(level)
+      ? props.priceLevels.filter((value) => value !== level)
+      : [...props.priceLevels, level].sort();
+    props.onPriceLevels(next);
+  }
+
+  function toggleCuisine(cuisine: string) {
+    const next = props.cuisines.includes(cuisine)
+      ? props.cuisines.filter((value) => value !== cuisine)
+      : [...props.cuisines, cuisine];
+    props.onCuisines(next);
+  }
 
   return (
     <div className="advanced">
@@ -106,6 +157,67 @@ export function AdvancedControls(props: AdvancedControlsProps) {
           <span>Open now only</span>
         </label>
       </div>
+
+      <div className="field">
+        <span className="field__label">
+          Price <span className="muted">any when none selected</span>
+        </span>
+        <div className="chips" role="group" aria-label="Price level">
+          {PRICE_LEVELS.map((price) => {
+            const active = props.priceLevels.includes(price.value);
+            return (
+              <button
+                type="button"
+                key={price.value}
+                className={"chip" + (active ? " is-active" : "")}
+                aria-pressed={active}
+                title={price.hint}
+                onClick={() => togglePrice(price.value)}
+              >
+                {price.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <label className="field field--inline">
+        <span className="field__label">Minimum rating</span>
+        <select
+          value={props.minRating}
+          onChange={(event) => props.onMinRating(Number(event.target.value))}
+        >
+          {MIN_RATINGS.map((rating) => (
+            <option key={rating.value} value={rating.value}>
+              {rating.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {MEAL_CATEGORIES.includes(props.category) ? (
+        <div className="field">
+          <span className="field__label">
+            Cuisine <span className="muted">pick any to narrow the search</span>
+          </span>
+          <div className="chips" role="group" aria-label="Cuisine">
+            {CUISINES.map((cuisine) => {
+              const active = props.cuisines.includes(cuisine);
+              return (
+                <button
+                  type="button"
+                  key={cuisine}
+                  className={"chip" + (active ? " is-active" : "")}
+                  aria-pressed={active}
+                  onClick={() => toggleCuisine(cuisine)}
+                >
+                  {cuisine}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {MEAL_CATEGORIES.includes(props.category) ? (
         <label className="field field--inline">

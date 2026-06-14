@@ -22,6 +22,8 @@ const TRANSIT_MODES: TransitTravelMode[] = ["bus", "subway", "train", "light_rai
 const TRANSIT_ROUTING: TransitRoutingPreference[] = ["less_walking", "fewer_transfers"];
 
 const MAX_ORIGINS = 10;
+const MAX_CUISINES = 8;
+const MAX_CUISINE_LENGTH = 40;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -121,6 +123,64 @@ function parseTransitPreferences(raw: unknown): TransitPreferences | string | un
   return Object.keys(preferences).length > 0 ? preferences : undefined;
 }
 
+function parsePriceLevels(raw: unknown): number[] | string | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(raw)) {
+    return "priceLevels must be an array";
+  }
+  const levels: number[] = [];
+  for (const item of raw) {
+    if (typeof item !== "number" || !Number.isInteger(item) || item < 1 || item > 4) {
+      return "priceLevels must contain integers between 1 and 4";
+    }
+    if (!levels.includes(item)) {
+      levels.push(item);
+    }
+  }
+  return levels.length > 0 ? levels : undefined;
+}
+
+function parseMinRating(raw: unknown): number | string | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || raw > 5) {
+    return "minRating must be a number between 0 and 5";
+  }
+  return raw;
+}
+
+function parseCuisines(raw: unknown): string[] | string | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(raw)) {
+    return "cuisines must be an array";
+  }
+  if (raw.length > MAX_CUISINES) {
+    return `a maximum of ${MAX_CUISINES} cuisines is supported`;
+  }
+  const cuisines: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") {
+      return "each cuisine must be a string";
+    }
+    const trimmed = item.trim();
+    if (trimmed.length === 0) {
+      continue;
+    }
+    if (trimmed.length > MAX_CUISINE_LENGTH) {
+      return `cuisine names must be ${MAX_CUISINE_LENGTH} characters or fewer`;
+    }
+    if (!cuisines.includes(trimmed)) {
+      cuisines.push(trimmed);
+    }
+  }
+  return cuisines.length > 0 ? cuisines : undefined;
+}
+
 /** Validate and normalise an untrusted request body. */
 export function validateSearchRequest(input: unknown): ValidationResult {
   if (!isRecord(input)) {
@@ -195,6 +255,21 @@ export function validateSearchRequest(input: unknown): ValidationResult {
     return { ok: false, error: transit };
   }
 
+  const priceLevels = parsePriceLevels(input.priceLevels);
+  if (typeof priceLevels === "string") {
+    return { ok: false, error: priceLevels };
+  }
+
+  const minRating = parseMinRating(input.minRating);
+  if (typeof minRating === "string") {
+    return { ok: false, error: minRating };
+  }
+
+  const cuisines = parseCuisines(input.cuisines);
+  if (typeof cuisines === "string") {
+    return { ok: false, error: cuisines };
+  }
+
   return {
     ok: true,
     value: {
@@ -209,6 +284,9 @@ export function validateSearchRequest(input: unknown): ValidationResult {
       searchRadiusMeters,
       meetTime,
       transit,
+      priceLevels,
+      minRating,
+      cuisines,
     },
   };
 }

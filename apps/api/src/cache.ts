@@ -104,6 +104,10 @@ export function buildSearchCacheKey(body: SearchRequestBody, now: Date = new Dat
     on: body.openNow ?? false,
     r: body.searchRadiusMeters ?? null,
     mt: body.meetTime ?? null,
+    // Sorted so a different selection order still hits the same cache entry.
+    pl: body.priceLevels && body.priceLevels.length > 0 ? [...body.priceLevels].sort() : null,
+    mr: body.minRating ?? null,
+    cu: body.cuisines && body.cuisines.length > 0 ? [...body.cuisines].sort() : null,
     d: mealSensitive ? now.getDay() : null,
   };
   return `search:v1:${JSON.stringify(shape)}`;

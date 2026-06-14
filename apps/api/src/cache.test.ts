@@ -112,6 +112,22 @@ describe("buildSearchCacheKey", () => {
     const monday = new Date("2026-06-15T12:00:00Z");
     expect(buildSearchCacheKey(base, sunday)).toBe(buildSearchCacheKey(base, monday));
   });
+
+  it("changes with the price, rating, and cuisine filters", () => {
+    expect(buildSearchCacheKey(base)).not.toBe(
+      buildSearchCacheKey({ ...base, priceLevels: [1, 2] }),
+    );
+    expect(buildSearchCacheKey(base)).not.toBe(buildSearchCacheKey({ ...base, minRating: 4 }));
+    expect(buildSearchCacheKey(base)).not.toBe(
+      buildSearchCacheKey({ ...base, cuisines: ["indian"] }),
+    );
+  });
+
+  it("is independent of price and cuisine selection order", () => {
+    expect(buildSearchCacheKey({ ...base, priceLevels: [1, 2], cuisines: ["indian", "thai"] })).toBe(
+      buildSearchCacheKey({ ...base, priceLevels: [2, 1], cuisines: ["thai", "indian"] }),
+    );
+  });
 });
 
 describe("MemoryCache", () => {
