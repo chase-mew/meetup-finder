@@ -758,6 +758,17 @@ select:focus {
   grid-auto-flow: row;
 }
 
+/* The travel mode picker carries a longer label ("Public transport"). Allow it
+   to wrap to two balanced lines in the narrow side panel rather than forcing a
+   single overflowing line, and keep all three items the same height so the
+   shorter labels stay vertically centred against the wrapped one. */
+.segmented--modes .segmented__item {
+  white-space: normal;
+  text-wrap: balance;
+  justify-content: center;
+  line-height: 1.2;
+}
+
 .segmented__item {
   border: 0;
   background: transparent;
@@ -880,6 +891,33 @@ select:focus {
 .field__label {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
+}
+
+/* A lighter label for controls grouped beneath a single section heading, so
+   they read as part of that set rather than as their own section. */
+.field__label--soft {
+  font-weight: var(--weight-normal);
+  color: var(--ink-2);
+}
+
+/* Groups related controls (e.g. the public transport options) under one
+   heading with consistent spacing. */
+.subfields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.subfield {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
 }
 
 input[type="range"] {
