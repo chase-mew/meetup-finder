@@ -17,6 +17,7 @@ import {
   reverseGeocode,
   search,
 } from "./api";
+import { type Favourite } from "./favourites";
 import { reportError } from "./reporting";
 import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
@@ -33,6 +34,7 @@ import {
   type SearchUrlState,
   writeSearchStateToUrl,
 } from "./urlState";
+import { useFavourites } from "./useFavourites";
 import { useTheme } from "./useTheme";
 
 const MAX_PEOPLE = 10;
@@ -161,6 +163,7 @@ function coordLabel(lat: number, lng: number): string {
 
 export function App() {
   const { theme, toggle: toggleTheme } = useTheme();
+  const { favourites, saveFavourite, deleteFavourite } = useFavourites();
   const [people, setPeople] = useState<Person[]>(() => [newPerson(), newPerson()]);
   const [category, setCategory] = useState<VenueCategory>("cafe");
   const [mode, setMode] = useState<TravelMode>("transit");
@@ -192,6 +195,35 @@ export function App() {
 
   function removePerson(id: string) {
     setPeople((prev) => (prev.length <= 2 ? prev : prev.filter((p) => p.id !== id)));
+  }
+
+  function saveFavouriteFromPerson(id: string) {
+    const person = people.find((p) => p.id === id);
+    if (!person || !person.location) {
+      return;
+    }
+    const label = person.label.trim();
+    if (!label) {
+      return;
+    }
+    saveFavourite({
+      id: crypto.randomUUID(),
+      label,
+      address: person.address,
+      location: person.location,
+      resolvedAddress: person.resolvedAddress,
+    });
+  }
+
+  function insertFavourite(id: string, favourite: Favourite) {
+    updatePerson(id, {
+      label: favourite.label,
+      address: favourite.address || favourite.resolvedAddress || formatCoords(favourite.location),
+      location: favourite.location,
+      resolvedAddress: favourite.resolvedAddress,
+      status: "ok",
+      error: undefined,
+    });
   }
 
   const geolocationSupported = useMemo(
@@ -526,12 +558,16 @@ export function App() {
               people={people}
               maxPeople={MAX_PEOPLE}
               geolocationSupported={geolocationSupported}
+              favourites={favourites}
               onUpdate={updatePerson}
               onResolve={resolvePerson}
               onSelectPlace={selectPlace}
               onUseMyLocation={useMyLocation}
               onRemove={removePerson}
               onAdd={addPerson}
+              onSaveFavourite={saveFavouriteFromPerson}
+              onInsertFavourite={insertFavourite}
+              onDeleteFavourite={deleteFavourite}
             />
           </section>
 

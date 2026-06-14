@@ -1,18 +1,23 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { type AutocompletePrediction, autocomplete } from "../api";
+import { type Favourite, findFavourite } from "../favourites";
 import type { Person } from "../types";
-import { LocateIcon } from "./icons";
+import { BookmarkFilledIcon, BookmarkIcon, LocateIcon, PeopleIcon } from "./icons";
 
 interface OriginsFormProps {
   people: Person[];
   maxPeople: number;
   geolocationSupported: boolean;
+  favourites: Favourite[];
   onUpdate: (id: string, patch: Partial<Person>) => void;
   onResolve: (id: string) => void;
   onSelectPlace: (id: string, prediction: AutocompletePrediction) => void;
   onUseMyLocation: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
+  onSaveFavourite: (id: string) => void;
+  onInsertFavourite: (id: string, favourite: Favourite) => void;
+  onDeleteFavourite: (favouriteId: string) => void;
 }
 
 const DEBOUNCE_MS = 250;
@@ -41,16 +46,112 @@ function StatusLine({ person }: { person: Person }) {
   return null;
 }
 
+interface SavedPeopleMenuProps {
+  favourites: Favourite[];
+  onInsert: (favourite: Favourite) => void;
+  onDelete: (favouriteId: string) => void;
+}
+
+/** A keyboard reachable menu for inserting or deleting saved favourite people. */
+function SavedPeopleMenu({ favourites, onInsert, onDelete }: SavedPeopleMenuProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    function onDocumentMouseDown(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
+  }, [open]);
+
+  if (favourites.length === 0) {
+    return null;
+  }
+
+  function closeAndRefocus() {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }
+
+  return (
+    <div
+      className="origin__saved"
+      ref={containerRef}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.preventDefault();
+          closeAndRefocus();
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="origin__action"
+        ref={triggerRef}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <PeopleIcon />
+        Saved people
+      </button>
+      {open ? (
+        <ul className="origin__saved-menu" id={menuId} role="menu">
+          {favourites.map((favourite) => (
+            <li key={favourite.id} className="origin__saved-item" role="presentation">
+              <button
+                type="button"
+                role="menuitem"
+                className="origin__saved-pick"
+                onClick={() => {
+                  onInsert(favourite);
+                  closeAndRefocus();
+                }}
+              >
+                <span className="origin__saved-name">{favourite.label}</span>
+                {favourite.resolvedAddress ? (
+                  <span className="origin__saved-address">{favourite.resolvedAddress}</span>
+                ) : null}
+              </button>
+              <button
+                type="button"
+                className="origin__saved-delete"
+                aria-label={`Delete saved person ${favourite.label}`}
+                onClick={() => onDelete(favourite.id)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 interface OriginRowProps {
   person: Person;
   index: number;
   canRemove: boolean;
   geolocationSupported: boolean;
+  favourites: Favourite[];
   onUpdate: (id: string, patch: Partial<Person>) => void;
   onResolve: (id: string) => void;
   onSelectPlace: (id: string, prediction: AutocompletePrediction) => void;
   onUseMyLocation: (id: string) => void;
   onRemove: (id: string) => void;
+  onSaveFavourite: (id: string) => void;
+  onInsertFavourite: (id: string, favourite: Favourite) => void;
+  onDeleteFavourite: (favouriteId: string) => void;
 }
 
 function OriginRow({
@@ -58,11 +159,15 @@ function OriginRow({
   index,
   canRemove,
   geolocationSupported,
+  favourites,
   onUpdate,
   onResolve,
   onSelectPlace,
   onUseMyLocation,
   onRemove,
+  onSaveFavourite,
+  onInsertFavourite,
+  onDeleteFavourite,
 }: OriginRowProps) {
   const [suggestions, setSuggestions] = useState<AutocompletePrediction[]>([]);
   const [open, setOpen] = useState(false);
@@ -149,6 +254,13 @@ function OriginRow({
 
   const showList = open && suggestions.length > 0;
 
+  const canSaveFavourite = person.status === "ok" && person.location !== undefined;
+  const hasName = person.label.trim().length > 0;
+  const savedMatch =
+    canSaveFavourite && person.location
+      ? findFavourite(favourites, { label: person.label, location: person.location })
+      : undefined;
+
   return (
     <div className="origin">
       <div className="origin__row">
@@ -232,17 +344,37 @@ function OriginRow({
               </ul>
             ) : null}
           </div>
-          {geolocationSupported ? (
-            <button
-              type="button"
-              className="origin__locate"
-              onClick={() => onUseMyLocation(person.id)}
-              disabled={person.status === "locating"}
-            >
-              <LocateIcon />
-              {person.status === "locating" ? "Locating…" : "Use my location"}
-            </button>
-          ) : null}
+          <div className="origin__actions">
+            {geolocationSupported ? (
+              <button
+                type="button"
+                className="origin__action"
+                onClick={() => onUseMyLocation(person.id)}
+                disabled={person.status === "locating"}
+              >
+                <LocateIcon />
+                {person.status === "locating" ? "Locating…" : "Use my location"}
+              </button>
+            ) : null}
+            {canSaveFavourite ? (
+              <button
+                type="button"
+                className="origin__action"
+                onClick={() => onSaveFavourite(person.id)}
+                disabled={!hasName}
+                title={hasName ? undefined : "Add a name to save this person"}
+                aria-label={savedMatch ? `Update saved person ${person.label}` : "Save this person"}
+              >
+                {savedMatch ? <BookmarkFilledIcon /> : <BookmarkIcon />}
+                {savedMatch ? "Saved" : "Save person"}
+              </button>
+            ) : null}
+            <SavedPeopleMenu
+              favourites={favourites}
+              onInsert={(favourite) => onInsertFavourite(person.id, favourite)}
+              onDelete={onDeleteFavourite}
+            />
+          </div>
         </div>
         <button
           type="button"
@@ -263,12 +395,16 @@ export function OriginsForm({
   people,
   maxPeople,
   geolocationSupported,
+  favourites,
   onUpdate,
   onResolve,
   onSelectPlace,
   onUseMyLocation,
   onRemove,
   onAdd,
+  onSaveFavourite,
+  onInsertFavourite,
+  onDeleteFavourite,
 }: OriginsFormProps) {
   return (
     <div className="origins">
@@ -279,11 +415,15 @@ export function OriginsForm({
           index={index}
           canRemove={people.length > 2}
           geolocationSupported={geolocationSupported}
+          favourites={favourites}
           onUpdate={onUpdate}
           onResolve={onResolve}
           onSelectPlace={onSelectPlace}
           onUseMyLocation={onUseMyLocation}
           onRemove={onRemove}
+          onSaveFavourite={onSaveFavourite}
+          onInsertFavourite={onInsertFavourite}
+          onDeleteFavourite={onDeleteFavourite}
         />
       ))}
 
