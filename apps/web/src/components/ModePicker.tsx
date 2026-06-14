@@ -1,7 +1,7 @@
 import type { TravelMode } from "@meetup/core";
 
 const MODES: Array<{ value: TravelMode; label: string }> = [
-  { value: "transit", label: "Public transport" },
+  { value: "transit", label: "Transit" },
   { value: "walking", label: "Walking" },
   { value: "driving", label: "Driving" },
 ];

@@ -547,6 +547,7 @@ select:focus {
   flex-direction: column;
   gap: 2px;
   text-align: center;
+  white-space: nowrap;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
