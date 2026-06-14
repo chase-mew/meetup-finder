@@ -837,11 +837,6 @@ select:focus {
   border-style: dashed;
 }
 
-.notice--info {
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
-}
-
 /* Segmented control ------------------------------------------------------- */
 
 .segmented {

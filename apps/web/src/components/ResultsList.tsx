@@ -1,6 +1,5 @@
 import type { Objective, SearchResponseBody, TravelMode } from "@meetup/core";
 import { useEffect, useState } from "react";
-import { explainResultsGeography } from "../explain";
 import { VenueCard } from "./VenueCard";
 
 const OBJECTIVE_LABELS: Record<Objective, string> = {
@@ -85,8 +84,6 @@ export function ResultsList({ result, selectedId, onSelect, shareUrl }: ResultsL
     .map((id) => labelById.get(id) ?? id)
     .filter((name): name is string => Boolean(name));
 
-  const geography = explainResultsGeography(result);
-
   return (
     <div className="results">
       <div className="results__header">
@@ -96,13 +93,6 @@ export function ResultsList({ result, selectedId, onSelect, shareUrl }: ResultsL
         </div>
         {shareUrl ? <CopyLinkButton shareUrl={shareUrl} /> : null}
       </div>
-
-      {geography ? (
-        <div className="notice notice--info" role="note">
-          <strong className="notice__title">{geography.headline}</strong>
-          <p className="notice__body">{geography.detail}</p>
-        </div>
-      ) : null}
 
       {unreachableNames.length > 0 ? (
         <div className="notice notice--warning" role="alert">
