@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { geocode, search } from "./api";
 import { AdvancedControls } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
+import { LoadingResults } from "./components/LoadingResults";
 import { MapView, type MapOrigin } from "./components/MapView";
 import { ModePicker } from "./components/ModePicker";
 import { OriginsForm } from "./components/OriginsForm";
@@ -243,7 +244,7 @@ export function App() {
           ) : null}
 
           {loading ? (
-            <div className="state state--loading">Calculating travel times…</div>
+            <LoadingResults />
           ) : result ? (
             <ResultsList result={result} selectedId={selectedId} onSelect={setSelectedId} />
           ) : (

@@ -80,6 +80,53 @@ describe("GoogleTravelProvider.matrix", () => {
     }
   });
 
+  it("runs chunks concurrently but within the concurrency limit", async () => {
+    // 3 origins => 33 destinations per request => 10 chunks for 330 destinations.
+    const destinations = makeDestinations(330);
+    let active = 0;
+    let maxActive = 0;
+    const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const body = JSON.parse(String(init!.body));
+      const destCount = body.destinations.length;
+      const originCount = body.origins.length;
+      const elements = [];
+      for (let o = 0; o < originCount; o += 1) {
+        for (let d = 0; d < destCount; d += 1) {
+          elements.push({
+            originIndex: o,
+            destinationIndex: d,
+            condition: "ROUTE_EXISTS",
+            duration: "600s",
+          });
+        }
+      }
+      active -= 1;
+      return new Response(JSON.stringify(elements), { status: 200 });
+    });
+
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    const result = await provider.matrix({ origins, destinations, mode: "transit" });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(10);
+    expect(maxActive).toBeGreaterThan(1);
+    expect(maxActive).toBeLessThanOrEqual(4);
+    expect(result.cells).toHaveLength(3 * 330);
+    const maxDestIndex = Math.max(...result.cells.map((c) => c.destinationIndex));
+    expect(maxDestIndex).toBe(329);
+  });
+
+  it("propagates errors from a failing chunk", async () => {
+    const destinations = makeDestinations(330);
+    const fetchImpl = vi.fn(async () => new Response("boom", { status: 500 }));
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await expect(
+      provider.matrix({ origins, destinations, mode: "transit" }),
+    ).rejects.toThrow();
+  });
+
   it("returns empty cells when there are no destinations", async () => {
     const fetchImpl = vi.fn();
     const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
