@@ -309,6 +309,9 @@ export function App() {
   }
 
   async function resolvePerson(id: string) {
+    // Bump first so clearing the input (the early return below) also supersedes
+    // any resolve still in flight from a previous blur.
+    const seq = nextSeq(id);
     const person = people.find((p) => p.id === id);
     if (!person || !needsResolve(person)) {
       if (person && !person.address.trim()) {
@@ -316,7 +319,6 @@ export function App() {
       }
       return;
     }
-    const seq = nextSeq(id);
     updatePerson(id, { status: "loading" });
     const resolved = await resolveOne(person);
     if (!isCurrentSeq(id, seq)) {
@@ -453,11 +455,30 @@ export function App() {
   async function handleSearch() {
     setError(null);
 
+    // Claim a sequence for every row we are about to resolve so a favourite
+    // insert or a fresh resolve made while the search runs is not reverted.
+    const seqs = new Map<string, number>();
+    for (const person of people) {
+      if (needsResolve(person)) {
+        seqs.set(person.id, nextSeq(person.id));
+      }
+    }
+
     setPeople((prev) => prev.map((p) => (needsResolve(p) ? { ...p, status: "loading" } : p)));
     const resolved = await Promise.all(
       people.map((p) => (needsResolve(p) ? resolveOne(p) : Promise.resolve(p))),
     );
-    setPeople(resolved);
+    const resolvedById = new Map(resolved.map((p) => [p.id, p]));
+    setPeople((prev) =>
+      prev.map((p) => {
+        const seq = seqs.get(p.id);
+        // Only rows we resolved here are touched, and only while still current.
+        if (seq === undefined || !isCurrentSeq(p.id, seq)) {
+          return p;
+        }
+        return resolvedById.get(p.id) ?? p;
+      }),
+    );
 
     const origins = resolved
       .filter((p) => p.location)
