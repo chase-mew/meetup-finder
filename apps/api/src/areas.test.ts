@@ -2,6 +2,7 @@ import { haversineMeters, type Origin } from "@meetup/core";
 import type { TravelMatrixRequest, TravelProvider } from "@meetup/providers";
 import { describe, expect, it, vi } from "vitest";
 import {
+  type AreaFinderConfig,
   DEFAULT_AREA_CONFIG,
   boundingBox,
   buildAnchors,
@@ -50,11 +51,35 @@ describe("buildAnchors", () => {
     { id: "b", location: { lat: 51.5036, lng: -0.1144 } },
   ];
 
-  it("includes grid points and London stations, capped by the budget", () => {
-    const anchors = buildAnchors(origins, DEFAULT_AREA_CONFIG);
+  // A config without the matrix budget cap so every candidate anchor survives,
+  // letting us compare the full station-aware anchor sets across modes.
+  const uncappedConfig: AreaFinderConfig = {
+    ...DEFAULT_AREA_CONFIG,
+    matrixElementBudget: Number.MAX_SAFE_INTEGER,
+  };
+
+  it("includes grid points and London stations for transit, capped by the budget", () => {
+    const anchors = buildAnchors(origins, DEFAULT_AREA_CONFIG, "transit");
     expect(anchors.length).toBeGreaterThan(DEFAULT_AREA_CONFIG.gridSize); // more than a sparse set
     const budgetCap = Math.floor(DEFAULT_AREA_CONFIG.matrixElementBudget / origins.length);
     expect(anchors.length).toBeLessThanOrEqual(Math.min(DEFAULT_AREA_CONFIG.maxAnchors, budgetCap));
+  });
+
+  it("includes station anchors for transit", () => {
+    const transit = buildAnchors(origins, uncappedConfig, "transit");
+    const walking = buildAnchors(origins, uncappedConfig, "walking");
+    // Transit adds stations on top of the grid plus median, so it has strictly
+    // more anchors than the station-free walking set for this cluster.
+    expect(transit.length).toBeGreaterThan(walking.length);
+  });
+
+  it("excludes station anchors for driving and walking", () => {
+    const driving = buildAnchors(origins, uncappedConfig, "driving");
+    const walking = buildAnchors(origins, uncappedConfig, "walking");
+    // Without stations the anchors are just the median plus the deduped grid,
+    // which is identical regardless of the non-transit mode.
+    expect(driving).toEqual(walking);
+    expect(driving.length).toBeLessThanOrEqual(DEFAULT_AREA_CONFIG.gridSize ** 2 + 1);
   });
 });
 

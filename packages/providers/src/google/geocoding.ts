@@ -1,3 +1,4 @@
+import type { LatLng } from "@meetup/core";
 import type { GeocodingProvider } from "../interfaces";
 import type { GeocodeResult } from "../types";
 import { type GoogleProviderOptions, readError, resolveFetch } from "./shared";
@@ -45,6 +46,28 @@ export class GoogleGeocodingProvider implements GeocodingProvider {
     url.searchParams.set("key", this.options.apiKey);
     // Bias results toward the United Kingdom for the MVP.
     url.searchParams.set("region", "gb");
+
+    const response = await fetchImpl(url.toString());
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    const body = (await response.json()) as GeocodeApiResponse;
+    return parseGeocodeResponse(body);
+  }
+
+  async reverseGeocode(location: LatLng): Promise<GeocodeResult | null> {
+    if (
+      !Number.isFinite(location.lat) ||
+      !Number.isFinite(location.lng) ||
+      Math.abs(location.lat) > 90 ||
+      Math.abs(location.lng) > 180
+    ) {
+      return null;
+    }
+    const fetchImpl = resolveFetch(this.options);
+    const url = new URL(GEOCODE_URL);
+    url.searchParams.set("latlng", `${location.lat},${location.lng}`);
+    url.searchParams.set("key", this.options.apiKey);
 
     const response = await fetchImpl(url.toString());
     if (!response.ok) {

@@ -11,7 +11,7 @@ export type ValidationResult =
   | { ok: true; value: SearchRequestBody }
   | { ok: false; error: string };
 
-const CATEGORIES: VenueCategory[] = ["cafe", "lunch", "dinner", "pub"];
+const CATEGORIES: VenueCategory[] = ["cafe", "lunch", "dinner", "pub", "park"];
 // Cycling is intentionally excluded: the Routes matrix endpoint cannot do it.
 const MODES: TravelMode[] = ["transit", "walking", "driving"];
 const OBJECTIVES: Objective[] = ["best", "min_total", "min_max", "min_variance"];

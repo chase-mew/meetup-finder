@@ -1,6 +1,6 @@
 import type { LatLng } from "@meetup/core";
 
-export type GeoStatus = "idle" | "loading" | "ok" | "error";
+export type GeoStatus = "idle" | "loading" | "locating" | "ok" | "error";
 
 export interface Person {
   id: string;

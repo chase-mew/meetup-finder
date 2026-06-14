@@ -36,6 +36,8 @@ export {
 
 export { scoreVenues } from "./scoring";
 
+export { SEARCH_DEFAULTS } from "./defaults";
+
 export {
   DEFAULT_MEAL_MINUTES,
   SERVE_PENALTY,
