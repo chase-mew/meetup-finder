@@ -106,3 +106,8 @@ export function buildSearchCacheKey(body: SearchRequestBody): string {
 export function buildGeocodeCacheKey(query: string): string {
   return `geo:v1:${query.trim().toLowerCase()}`;
 }
+
+/** Round coordinates so nearby taps share a reverse geocode cache entry. */
+export function buildReverseGeocodeCacheKey(lat: number, lng: number): string {
+  return `revgeo:v1:${roundCoord(lat)},${roundCoord(lng)}`;
+}

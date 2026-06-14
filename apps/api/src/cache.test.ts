@@ -1,6 +1,12 @@
 import type { SearchRequestBody } from "@meetup/core";
 import { describe, expect, it } from "vitest";
-import { MemoryCache, buildGeocodeCacheKey, buildSearchCacheKey, roundCoord } from "./cache";
+import {
+  MemoryCache,
+  buildGeocodeCacheKey,
+  buildReverseGeocodeCacheKey,
+  buildSearchCacheKey,
+  roundCoord,
+} from "./cache";
 
 describe("roundCoord", () => {
   it("rounds to three decimals by default", () => {
@@ -13,6 +19,20 @@ describe("buildGeocodeCacheKey", () => {
   it("is case and whitespace insensitive", () => {
     expect(buildGeocodeCacheKey("  Waterloo Station ")).toBe(
       buildGeocodeCacheKey("waterloo station"),
+    );
+  });
+});
+
+describe("buildReverseGeocodeCacheKey", () => {
+  it("rounds coordinates so nearby taps share a key", () => {
+    expect(buildReverseGeocodeCacheKey(51.530812, -0.123881)).toBe(
+      buildReverseGeocodeCacheKey(51.53072, -0.12391),
+    );
+  });
+
+  it("differs for distinct coordinates", () => {
+    expect(buildReverseGeocodeCacheKey(51.53, -0.12)).not.toBe(
+      buildReverseGeocodeCacheKey(51.5, -0.11),
     );
   });
 });

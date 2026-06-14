@@ -12,6 +12,7 @@ import {
   KvCache,
   MemoryCache,
   buildGeocodeCacheKey,
+  buildReverseGeocodeCacheKey,
   buildSearchCacheKey,
 } from "./cache";
 import { runSearch } from "./search";
@@ -60,6 +61,34 @@ app.get("/api/geocode", async (c) => {
   try {
     const provider = new GoogleGeocodingProvider({ apiKey });
     const result = await provider.geocode(query);
+    await cache.set(cacheKey, result, GEOCODE_TTL_SECONDS);
+    return result ? c.json(result) : c.json({ error: "No match found" }, 404);
+  } catch (error) {
+    return c.json({ error: messageOf(error) }, 502);
+  }
+});
+
+app.get("/api/reverse-geocode", async (c) => {
+  const apiKey = c.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "Server is missing GOOGLE_MAPS_API_KEY" }, 500);
+  }
+  const lat = parseCoord(c.req.query("lat"), 90);
+  const lng = parseCoord(c.req.query("lng"), 180);
+  if (lat === null || lng === null) {
+    return c.json({ error: "Valid lat and lng query parameters are required" }, 400);
+  }
+
+  const cache = cacheFor(c.env);
+  const cacheKey = buildReverseGeocodeCacheKey(lat, lng);
+  const cached = await cache.get<GeocodeResult | null>(cacheKey);
+  if (cached !== undefined) {
+    return cached ? c.json(cached) : c.json({ error: "No match found" }, 404);
+  }
+
+  try {
+    const provider = new GoogleGeocodingProvider({ apiKey });
+    const result = await provider.reverseGeocode({ lat, lng });
     await cache.set(cacheKey, result, GEOCODE_TTL_SECONDS);
     return result ? c.json(result) : c.json({ error: "No match found" }, 404);
   } catch (error) {
@@ -136,6 +165,17 @@ function clampInt(value: string | undefined, fallback: number, min: number, max:
     return fallback;
   }
   return Math.min(max, Math.max(min, parsed));
+}
+
+function parseCoord(value: string | undefined, max: number): number | null {
+  if (value === undefined || value.trim() === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || Math.abs(parsed) > max) {
+    return null;
+  }
+  return parsed;
 }
 
 function messageOf(error: unknown): string {

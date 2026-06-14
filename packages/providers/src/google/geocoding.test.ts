@@ -51,4 +51,36 @@ describe("GoogleGeocodingProvider", () => {
     expect(await provider.geocode("   ")).toBeNull();
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  it("reverse geocodes coordinates into an address", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          status: "OK",
+          results: [
+            {
+              formatted_address: "King's Cross, London, UK",
+              geometry: { location: { lat: 51.5308, lng: -0.1238 } },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = new GoogleGeocodingProvider({ apiKey: "k", fetchImpl });
+    const result = await provider.reverseGeocode({ lat: 51.5308, lng: -0.1238 });
+
+    expect(result?.formattedAddress).toBe("King's Cross, London, UK");
+    const calledUrl = String(fetchImpl.mock.calls[0]![0]);
+    expect(calledUrl).toContain("latlng=51.5308%2C-0.1238");
+    expect(calledUrl).toContain("key=k");
+  });
+
+  it("returns null for out of range coordinates without calling fetch", async () => {
+    const fetchImpl = vi.fn();
+    const provider = new GoogleGeocodingProvider({ apiKey: "k", fetchImpl });
+    expect(await provider.reverseGeocode({ lat: 200, lng: 0 })).toBeNull();
+    expect(await provider.reverseGeocode({ lat: Number.NaN, lng: 0 })).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 });
