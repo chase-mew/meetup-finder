@@ -27,6 +27,12 @@ export interface SearchUrlState {
   meetTime: string;
   excludeBuses: boolean;
   transitRouting: TransitRoutingChoice;
+  /** Google price levels to keep, 1 (inexpensive) to 4 (very expensive). */
+  priceLevels: number[];
+  /** Minimum venue rating, 0 (no floor) to 5 in 0.5 steps. */
+  minRating: number;
+  /** Cuisine or keyword hints biasing the venue search. */
+  cuisines: string[];
 }
 
 const CATEGORIES: readonly VenueCategory[] = ["cafe", "lunch", "dinner", "pub", "park"];
@@ -44,7 +50,16 @@ const DEFAULTS = {
   meetTime: "",
   excludeBuses: false,
   transitRouting: "any" as TransitRoutingChoice,
+  priceLevels: [] as number[],
+  minRating: 0,
+  cuisines: [] as string[],
 };
+
+/** Allowed price levels, matching the API validation (1..4). */
+const PRICE_LEVELS: readonly number[] = [1, 2, 3, 4];
+/** Upper bound on cuisine hints, matching the API validation. */
+const MAX_CUISINES = 8;
+const MAX_CUISINE_LENGTH = 40;
 
 /** Coordinates are rounded to keep links short while staying accurate enough. */
 const COORD_DECIMALS = 5;
@@ -76,6 +91,16 @@ export function encodeSearchState(state: SearchUrlState): string {
   }
   params.set("xbus", state.excludeBuses ? "1" : "0");
   params.set("troute", state.transitRouting);
+  if (state.priceLevels.length > 0) {
+    params.set("price", [...state.priceLevels].sort((a, b) => a - b).join(","));
+  }
+  if (state.minRating > 0) {
+    params.set("rating", String(state.minRating));
+  }
+  // Cuisines are appended individually so values with commas or spaces survive.
+  for (const cuisine of state.cuisines) {
+    params.append("cuisine", cuisine);
+  }
   return params.toString();
 }
 
@@ -108,6 +133,9 @@ export function decodeSearchState(query: string): SearchUrlState | null {
     meetTime: parseMeetTime(params.get("meet")),
     excludeBuses: params.get("xbus") === "1",
     transitRouting: pickEnum(params.get("troute"), TRANSIT_ROUTINGS, DEFAULTS.transitRouting),
+    priceLevels: parsePriceLevels(params.get("price")),
+    minRating: parseRating(params.get("rating")),
+    cuisines: parseCuisines(params.getAll("cuisine")),
   };
 }
 
@@ -193,4 +221,49 @@ function parseLimit(raw: string | null): number {
     return DEFAULTS.limit;
   }
   return Math.min(value, MAX_LIMIT);
+}
+
+function parsePriceLevels(raw: string | null): number[] {
+  if (raw === null) {
+    return [];
+  }
+  const levels: number[] = [];
+  for (const part of raw.split(",")) {
+    const value = Number(part);
+    if (PRICE_LEVELS.includes(value) && !levels.includes(value)) {
+      levels.push(value);
+    }
+  }
+  return levels.sort((a, b) => a - b);
+}
+
+function parseRating(raw: string | null): number {
+  if (raw === null) {
+    return DEFAULTS.minRating;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    return DEFAULTS.minRating;
+  }
+  // Clamp to 5 and snap to the 0.5 cadence the API accepts.
+  return Math.min(5, Math.round(value * 2) / 2);
+}
+
+function parseCuisines(raw: string[]): string[] {
+  const cuisines: string[] = [];
+  for (const item of raw) {
+    const trimmed = item.trim();
+    if (
+      trimmed.length === 0 ||
+      trimmed.length > MAX_CUISINE_LENGTH ||
+      cuisines.includes(trimmed)
+    ) {
+      continue;
+    }
+    cuisines.push(trimmed);
+    if (cuisines.length >= MAX_CUISINES) {
+      break;
+    }
+  }
+  return cuisines;
 }

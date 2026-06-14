@@ -41,6 +41,20 @@ export function categoryToTextQuery(category: VenueCategory): string {
   }
 }
 
+/**
+ * Build the Text Search query for a category, optionally biased by cuisine or
+ * keyword hints. Multiple cuisines are joined with "or" so the search returns a
+ * mix (e.g. "indian or thai dinner restaurant"). Blank hints are ignored.
+ */
+export function buildTextQuery(category: VenueCategory, cuisines?: string[]): string {
+  const base = categoryToTextQuery(category);
+  const cleaned = (cuisines ?? []).map((cuisine) => cuisine.trim()).filter((cuisine) => cuisine);
+  if (cleaned.length === 0) {
+    return base;
+  }
+  return `${cleaned.join(" or ")} ${base}`;
+}
+
 const CAFE_PRIMARY_TYPES = new Set(["cafe", "coffee_shop", "tea_house"]);
 const PUB_PRIMARY_TYPES = new Set(["bar", "pub", "wine_bar", "bar_and_grill"]);
 const PARK_PRIMARY_TYPES = new Set([

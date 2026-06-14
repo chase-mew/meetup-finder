@@ -134,4 +134,52 @@ describe("validateSearchRequest", () => {
   it("rejects a non object transit value", () => {
     expect(validateSearchRequest({ ...validBody, transit: "rail" }).ok).toBe(false);
   });
+
+  it("carries through valid place filters and dedupes price levels", () => {
+    const result = validateSearchRequest({
+      ...validBody,
+      category: "dinner",
+      priceLevels: [2, 1, 2],
+      minRating: 4,
+      cuisines: ["Indian", " Thai ", "Indian"],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.priceLevels).toEqual([2, 1]);
+      expect(result.value.minRating).toBe(4);
+      expect(result.value.cuisines).toEqual(["Indian", "Thai"]);
+    }
+  });
+
+  it("leaves place filters undefined when not provided or empty", () => {
+    const result = validateSearchRequest({ ...validBody, priceLevels: [], cuisines: [] });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.priceLevels).toBeUndefined();
+      expect(result.value.minRating).toBeUndefined();
+      expect(result.value.cuisines).toBeUndefined();
+    }
+  });
+
+  it("rejects price levels outside 1..4", () => {
+    expect(validateSearchRequest({ ...validBody, priceLevels: [0] }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, priceLevels: [5] }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, priceLevels: [2.5] }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, priceLevels: "cheap" }).ok).toBe(false);
+  });
+
+  it("rejects a minimum rating outside 0..5 or off the 0.5 cadence", () => {
+    expect(validateSearchRequest({ ...validBody, minRating: -1 }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, minRating: 6 }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, minRating: "good" }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, minRating: 3.7 }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, minRating: 4.5 }).ok).toBe(true);
+  });
+
+  it("rejects too many or overlong cuisines", () => {
+    const tooMany = Array.from({ length: 9 }, (_, i) => `c${i}`);
+    expect(validateSearchRequest({ ...validBody, cuisines: tooMany }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, cuisines: ["x".repeat(41)] }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, cuisines: [123] }).ok).toBe(false);
+  });
 });

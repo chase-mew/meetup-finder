@@ -43,6 +43,12 @@ export interface PlacesSearchRequest {
   /** How many pages of 20 results to fetch (1 to 3). Defaults to 3. */
   maxPages?: number;
   openNow?: boolean;
+  /** Restrict to these Google price levels, 1 (inexpensive) to 4 (very expensive). */
+  priceLevels?: number[];
+  /** Only return venues rated at least this highly, 0 to 5 in 0.5 steps. */
+  minRating?: number;
+  /** Cuisine or keyword hints woven into the text query (food categories only). */
+  cuisines?: string[];
 }
 
 export interface TravelMatrixRequest {

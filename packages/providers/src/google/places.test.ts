@@ -185,6 +185,62 @@ describe("GooglePlacesProvider", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
+  it("sends price levels, minimum rating, and cuisine hints to the API", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          places: [
+            { id: "r1", location: { latitude: 51.5, longitude: -0.1 }, primaryType: "indian_restaurant" },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = new GooglePlacesProvider({ apiKey: "k", fetchImpl });
+    await provider.search({
+      center: { lat: 51.5, lng: -0.1 },
+      radiusMeters: 1500,
+      category: "dinner",
+      maxPages: 1,
+      priceLevels: [1, 2],
+      minRating: 3.7,
+      cuisines: ["indian", "thai"],
+    });
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const sent = JSON.parse(String((init as RequestInit).body));
+    expect(sent.textQuery).toBe("indian or thai dinner restaurant");
+    expect(sent.priceLevels).toEqual(["PRICE_LEVEL_INEXPENSIVE", "PRICE_LEVEL_MODERATE"]);
+    // 3.7 snaps to the nearest 0.5 cadence the Places API accepts.
+    expect(sent.minRating).toBe(3.5);
+  });
+
+  it("omits price and rating filters when none are requested", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          places: [{ id: "c1", location: { latitude: 51.5, longitude: -0.1 }, primaryType: "cafe" }],
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = new GooglePlacesProvider({ apiKey: "k", fetchImpl });
+    await provider.search({
+      center: { lat: 51.5, lng: -0.1 },
+      radiusMeters: 1500,
+      category: "cafe",
+      maxPages: 1,
+      priceLevels: [],
+      minRating: 0,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const sent = JSON.parse(String((init as RequestInit).body));
+    expect(sent.textQuery).toBe("cafe");
+    expect(sent.priceLevels).toBeUndefined();
+    expect(sent.minRating).toBeUndefined();
+  });
+
   it("stops at the requested page limit", async () => {
     const fetchImpl = vi.fn(async () =>
       new Response(
