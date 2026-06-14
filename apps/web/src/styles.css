@@ -1062,8 +1062,8 @@ input[type="range"] {
 .map-shell {
   position: relative;
   flex: none;
-  height: 40vh;
-  min-height: 240px;
+  height: clamp(420px, 56vh, 680px);
+  min-height: 420px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1984,7 +1984,10 @@ input[type="range"] {
   color: var(--ink);
 }
 
-.map-popup__link {
+/* Scope under .map-popup-shell with the anchor type so the white ink wins over
+   Leaflet's `.leaflet-container a { color: #0078A8 }`, which otherwise left the
+   Directions label as low-contrast teal on the teal button. */
+.map-popup-shell a.map-popup__link {
   align-self: flex-start;
   margin-top: var(--space-1);
   padding: 6px 12px;
@@ -1996,8 +1999,9 @@ input[type="range"] {
   text-decoration: none;
 }
 
-.map-popup__link:hover {
+.map-popup-shell a.map-popup__link:hover {
   background: var(--accent-hover);
+  color: var(--accent-ink);
 }
 
 /* Lock background scroll while the map fills the screen. */
@@ -2036,7 +2040,7 @@ body.is-map-expanded {
   }
 
   .map-shell {
-    height: 280px;
+    height: 380px;
     min-height: 0;
   }
 
