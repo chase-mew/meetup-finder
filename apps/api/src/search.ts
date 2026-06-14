@@ -8,6 +8,7 @@ import {
   type SearchResponseBody,
   bayesianRating,
   haversineMeters,
+  normalizeWeights,
   scoreVenues,
   weightedGeometricMedian,
 } from "@meetup/core";
@@ -157,6 +158,11 @@ export async function runSearch(
 
   const candidates = preselectCandidates(centers, found, config.candidateLimit);
 
+  const weights = normalizeWeights({
+    travel: body.travelWeight ?? SEARCH_DEFAULTS.travelWeight,
+    rating: body.ratingWeight ?? SEARCH_DEFAULTS.ratingWeight,
+  });
+
   if (candidates.length === 0) {
     return {
       seed: primaryCenter,
@@ -164,6 +170,7 @@ export async function runSearch(
       category: body.category,
       mode: body.mode,
       objective,
+      weights,
       searchRadiusMeters,
       venues: [],
     };
@@ -205,10 +212,7 @@ export async function runSearch(
     })),
     {
       objective,
-      weights: {
-        travel: body.travelWeight ?? SEARCH_DEFAULTS.travelWeight,
-        rating: body.ratingWeight ?? SEARCH_DEFAULTS.ratingWeight,
-      },
+      weights,
     },
   );
 
@@ -249,6 +253,8 @@ export async function runSearch(
         objectiveCostSeconds: entry.objectiveCostSeconds,
         totalSeconds: entry.totalSeconds,
         maxSeconds: entry.maxSeconds,
+        normalizedTravel: entry.normalizedTravel,
+        normalizedRating: entry.normalizedRating,
         legs,
       } satisfies ResultVenue,
     ];
@@ -260,6 +266,7 @@ export async function runSearch(
     category: body.category,
     mode: body.mode,
     objective,
+    weights,
     searchRadiusMeters,
     venues,
   };

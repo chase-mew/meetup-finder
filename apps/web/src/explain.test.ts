@@ -1,0 +1,75 @@
+import type { ResultVenue, ScoreWeights } from "@meetup/core";
+import { describe, expect, it } from "vitest";
+import { explainVenue } from "./explain";
+
+const WEIGHTS: ScoreWeights = { travel: 0.7, rating: 0.3 };
+
+function makeVenue(overrides: Partial<ResultVenue> = {}): ResultVenue {
+  return {
+    id: "v1",
+    name: "Test Venue",
+    location: { lat: 0, lng: 0 },
+    reachable: true,
+    finalScore: 0.2,
+    bayesianRating: 4.4,
+    objectiveCostSeconds: 600,
+    totalSeconds: 1200,
+    maxSeconds: 900,
+    normalizedTravel: 0.1,
+    normalizedRating: 0.7,
+    legs: [],
+    ...overrides,
+  };
+}
+
+describe("explainVenue", () => {
+  it("leads with the objective when the venue wins on travel", () => {
+    const venue = makeVenue({ normalizedTravel: 0.05, normalizedRating: 0.6 });
+    expect(explainVenue(venue, "min_max", WEIGHTS).headline).toBe(
+      "Fairest worst trip among the options",
+    );
+    expect(explainVenue(venue, "min_total", WEIGHTS).headline).toBe(
+      "Lowest combined travel for the group",
+    );
+  });
+
+  it("explains a rating led pick when travel is worse but rating carries it", () => {
+    const venue = makeVenue({ normalizedTravel: 0.9, normalizedRating: 0.95 });
+    const explanation = explainVenue(venue, "best", { travel: 0.3, rating: 0.7 });
+    expect(explanation.headline).toBe("Higher rated, slightly longer for most");
+    expect(explanation.ratingShare).toBeGreaterThan(explanation.travelShare);
+  });
+
+  it("describes a travel led pick when travel drives the ranking", () => {
+    const venue = makeVenue({ normalizedTravel: 0.4, normalizedRating: 0.45 });
+    const explanation = explainVenue(venue, "best", WEIGHTS);
+    expect(explanation.headline).toBe("Quick for the group, and fairly rated");
+    expect(explanation.travelShare).toBeGreaterThan(explanation.ratingShare);
+  });
+
+  it("flags venues that cannot be reached by everyone", () => {
+    const venue = makeVenue({ reachable: false, maxSeconds: 3600 });
+    const explanation = explainVenue(venue, "min_max", WEIGHTS);
+    expect(explanation.headline).toBe("Not everyone can reach this one");
+    expect(explanation.detail).toContain("1 h");
+  });
+
+  it("returns shares that sum to one", () => {
+    const explanation = explainVenue(makeVenue(), "best", WEIGHTS);
+    expect(explanation.travelShare + explanation.ratingShare).toBeCloseTo(1, 5);
+  });
+
+  it("falls back to the weights when a venue has no measurable strength", () => {
+    const venue = makeVenue({ normalizedTravel: 1, normalizedRating: 0 });
+    const explanation = explainVenue(venue, "best", { travel: 0.6, rating: 0.4 });
+    expect(explanation.travelShare).toBeCloseTo(0.6, 5);
+    expect(explanation.ratingShare).toBeCloseTo(0.4, 5);
+  });
+
+  it("normalizes the fallback so shares sum to one even with raw weights", () => {
+    const venue = makeVenue({ normalizedTravel: 1, normalizedRating: 0 });
+    const explanation = explainVenue(venue, "best", { travel: 7, rating: 3 });
+    expect(explanation.travelShare).toBeCloseTo(0.7, 5);
+    expect(explanation.travelShare + explanation.ratingShare).toBeCloseTo(1, 5);
+  });
+});
