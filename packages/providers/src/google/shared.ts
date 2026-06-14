@@ -26,6 +26,8 @@ export function categoryToTextQuery(category: VenueCategory): string {
       return "dinner restaurant";
     case "pub":
       return "pub";
+    case "park":
+      return "park";
     default: {
       const exhaustive: never = category;
       throw new Error(`Unknown category: ${String(exhaustive)}`);
@@ -35,6 +37,16 @@ export function categoryToTextQuery(category: VenueCategory): string {
 
 const CAFE_PRIMARY_TYPES = new Set(["cafe", "coffee_shop", "tea_house"]);
 const PUB_PRIMARY_TYPES = new Set(["bar", "pub", "wine_bar", "bar_and_grill"]);
+const PARK_PRIMARY_TYPES = new Set([
+  "park",
+  "national_park",
+  "state_park",
+  "garden",
+  "botanical_garden",
+  "dog_park",
+  "picnic_ground",
+  "plaza",
+]);
 
 /**
  * Decide whether a place belongs to the chosen category based on its primary
@@ -56,6 +68,8 @@ export function matchesCategoryPrimaryType(
       return primaryType === "restaurant" || primaryType.endsWith("_restaurant");
     case "pub":
       return PUB_PRIMARY_TYPES.has(primaryType);
+    case "park":
+      return PARK_PRIMARY_TYPES.has(primaryType);
     default: {
       const exhaustive: never = category;
       throw new Error(`Unknown category: ${String(exhaustive)}`);
