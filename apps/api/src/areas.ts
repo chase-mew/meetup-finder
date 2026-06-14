@@ -2,6 +2,7 @@ import {
   type LatLng,
   type Objective,
   type Origin,
+  type TransitPreferences,
   type TravelMode,
   haversineMeters,
   maxSeconds,
@@ -218,6 +219,7 @@ export async function findMeetingAreas(
   mode: TravelMode,
   objective: Objective,
   config: AreaFinderConfig = DEFAULT_AREA_CONFIG,
+  transit?: TransitPreferences,
 ): Promise<MeetingArea[]> {
   if (origins.length === 0) {
     return [];
@@ -231,6 +233,7 @@ export async function findMeetingAreas(
     origins: origins.map((o) => o.location),
     destinations: anchors,
     mode,
+    transit,
   });
 
   const durations: Array<Array<number | null>> = anchors.map(() => origins.map(() => null));

@@ -3,12 +3,14 @@ import {
   SEARCH_DEFAULTS,
   type SearchRequestBody,
   type SearchResponseBody,
+  type TransitPreferences,
+  type TransitTravelMode,
   type TravelMode,
   type VenueCategory,
 } from "@meetup/core";
 import { useMemo, useState } from "react";
 import { geocode, reverseGeocode, search } from "./api";
-import { AdvancedControls } from "./components/AdvancedControls";
+import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
 import { LoadingResults } from "./components/LoadingResults";
 import { MapView, type MapOrigin } from "./components/MapView";
@@ -19,6 +21,28 @@ import type { Person } from "./types";
 import { useTheme } from "./useTheme";
 
 const MAX_PEOPLE = 10;
+
+// Allow-list of transit submodes used when the user opts to exclude buses.
+const NON_BUS_TRANSIT_MODES: TransitTravelMode[] = ["subway", "train", "light_rail", "rail"];
+
+/** Build a transit preferences object from the advanced controls, or undefined. */
+function buildTransitPreferences(
+  mode: TravelMode,
+  excludeBuses: boolean,
+  routing: TransitRoutingChoice,
+): TransitPreferences | undefined {
+  if (mode !== "transit") {
+    return undefined;
+  }
+  const preferences: TransitPreferences = {};
+  if (excludeBuses) {
+    preferences.allowedModes = NON_BUS_TRANSIT_MODES;
+  }
+  if (routing !== "any") {
+    preferences.routingPreference = routing;
+  }
+  return Object.keys(preferences).length > 0 ? preferences : undefined;
+}
 
 function newPerson(): Person {
   return {
@@ -97,6 +121,8 @@ export function App() {
   const [limit, setLimit] = useState<number>(SEARCH_DEFAULTS.limit);
   const [openNow, setOpenNow] = useState(false);
   const [meetTime, setMeetTime] = useState("");
+  const [excludeBuses, setExcludeBuses] = useState(false);
+  const [transitRouting, setTransitRouting] = useState<TransitRoutingChoice>("any");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -230,6 +256,7 @@ export function App() {
       limit,
       openNow,
       meetTime: usesMeetTime && meetTime ? meetTime : undefined,
+      transit: buildTransitPreferences(mode, excludeBuses, transitRouting),
     };
 
     setLoading(true);
@@ -321,6 +348,11 @@ export function App() {
                 category={category}
                 meetTime={meetTime}
                 onMeetTime={setMeetTime}
+                showTransit={mode === "transit"}
+                excludeBuses={excludeBuses}
+                onExcludeBuses={setExcludeBuses}
+                transitRouting={transitRouting}
+                onTransitRouting={setTransitRouting}
               />
             ) : null}
           </section>

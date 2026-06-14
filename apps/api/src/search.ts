@@ -156,7 +156,14 @@ export async function runSearch(
   );
 
   // Stage one: find the best meeting areas by real travel time, not geometry.
-  const areas = await findMeetingAreas(deps.travel, origins, body.mode, objective, config.area);
+  const areas = await findMeetingAreas(
+    deps.travel,
+    origins,
+    body.mode,
+    objective,
+    config.area,
+    body.transit,
+  );
   const centers: LatLng[] = areas.length > 0 ? areas.map((a) => a.center) : [median];
   const primaryCenter = centers[0]!;
 
@@ -204,6 +211,7 @@ export async function runSearch(
     origins: origins.map((o) => o.location),
     destinations: candidates.map((c) => c.location),
     mode: body.mode,
+    transit: body.transit,
   });
 
   const durationGrid: Array<Array<number | null>> = origins.map(() =>
