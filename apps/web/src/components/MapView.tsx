@@ -16,16 +16,29 @@ interface MapViewProps {
   seed?: LatLng;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  theme?: "light" | "dark";
 }
 
 const LONDON: [number, number] = [51.5074, -0.1278];
 
-export function MapView({ origins, venues, seed, selectedId, onSelect }: MapViewProps) {
+// CARTO basemaps: clean, low-contrast tiles designed to sit under data overlays.
+// Voyager reads well in light mode; Dark Matter is a genuine dark tileset, so we
+// no longer need a CSS invert hack to fake one.
+const TILE_URLS = {
+  light: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+} as const;
+
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+export function MapView({ origins, venues, seed, selectedId, onSelect, theme = "light" }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const venueMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const boundsRef = useRef<Array<[number, number]>>([]);
+  const tileRef = useRef<L.TileLayer | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
@@ -49,9 +62,10 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
       return;
     }
     const map = L.map(containerRef.current, { scrollWheelZoom: true }).setView(LONDON, 12);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors",
+    tileRef.current = L.tileLayer(TILE_URLS[theme], {
+      maxZoom: 20,
+      subdomains: "abcd",
+      attribution: TILE_ATTRIBUTION,
     }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -61,8 +75,21 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
       mapRef.current = null;
       layerRef.current = null;
       venueMarkersRef.current.clear();
+      tileRef.current = null;
     };
+    // theme intentionally omitted: the initial tile layer is set here and kept in
+    // sync by the effect below so the map is not recreated on theme change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const tile = tileRef.current;
+    if (!map || !tile) {
+      return;
+    }
+    tile.setUrl(TILE_URLS[theme]);
+  }, [theme]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -114,7 +114,6 @@
 
   --pin-origin: #44403a;
   --pin-seed: #a59c8d;
-  --map-tile-filter: none;
 }
 
 /* Dark theme tokens. Applied via the data-theme override (manual choice) and,
@@ -159,8 +158,6 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 18px rgba(0, 0, 0, 0.45), 0 24px 50px rgba(0, 0, 0, 0.6);
-  --map-tile-filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.95)
-    saturate(0.85);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -203,8 +200,6 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 8px 18px rgba(0, 0, 0, 0.45), 0 24px 50px rgba(0, 0, 0, 0.6);
-    --map-tile-filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.95)
-      saturate(0.85);
   }
 }
 
@@ -1823,12 +1818,6 @@ input[type="range"] {
 }
 
 /* Leaflet theming -------------------------------------------------------- */
-
-/* Filter the base tiles so the bright OSM map sits comfortably in dark mode.
-   Markers and controls live in separate panes and stay untouched. */
-.leaflet-tile-pane {
-  filter: var(--map-tile-filter);
-}
 
 .leaflet-control-attribution {
   background: color-mix(in srgb, var(--panel) 82%, transparent) !important;
