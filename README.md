@@ -1,8 +1,11 @@
 # Meetup Finder
 
+<img width="1200" height="630" alt="image" src="https://github.com/user-attachments/assets/c8ee427f-9d78-46a9-a812-951d81ea1313" />
+
+
 Find the fairest place to meet. Enter where everyone is starting from in London, pick a category (Cafe, Lunch, Dinner, Pub), and get the best places to meet ranked by real public transport travel time blended with venue star rating.
 
-The default objective is the fairest worst case travel (nobody travels too far), with optional advanced controls for the objective and how much rating matters. You can also narrow results with Google place filters: price level (one or more of inexpensive to very expensive), a minimum star rating, and, for lunch and dinner, cuisine hints such as Indian or Thai. Lunch and dinner searches are time aware: they favour venues that are open and serving at the meet time (a typical hour by default, or one you pick), and drop venues that are clearly shut then.
+The default objective balances fair, even travel for everyone: it leans on the worst single trip (nobody travels too far) and how evenly the journeys are shared, rather than raw total time, so the result lands between people instead of next to one of them. Advanced controls let you switch the objective and how much rating matters. You can also narrow results with Google place filters: price level (one or more of inexpensive to very expensive), a minimum star rating, and, for lunch and dinner, cuisine hints such as Indian or Thai. Lunch and dinner searches are time aware: they favour venues that are open and serving at the meet time (a typical hour by default, or one you pick), and drop venues that are clearly shut then.
 
 ## Why it is different
 
@@ -165,3 +168,26 @@ Variable:
 - `VITE_API_BASE_URL` the deployed Worker URL.
 
 The Pages project is created automatically on the first deploy if it does not already exist.
+
+## Contributing
+
+Contributions are welcome. To get set up:
+
+1. Fork and clone the repository.
+2. Install dependencies with `pnpm install` (this repo uses pnpm; see `package.json` for the pinned version).
+3. Create a branch for your change.
+4. Make your change, then make sure the suite passes:
+   - `pnpm test` runs every package test suite offline, with no API calls.
+   - `pnpm typecheck` type checks every package.
+   - `pnpm build` builds every package.
+5. Open a pull request describing what you changed and why.
+
+A few notes:
+
+- Keep vendor specifics (such as Google adapters) inside `packages/providers`. The core scoring engine in `packages/core` stays pure and free of network calls.
+- Add or update tests alongside your change where it makes sense.
+- The live integration and smoke tests need a Google key and cost a small amount, so they stay opt in and are not required for a pull request.
+
+## License
+
+This project is licensed under the MIT License. See [`LICENSE`](LICENSE) for details.

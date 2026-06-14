@@ -32,7 +32,10 @@ export interface TransitPreferences {
  * - min_total: minimise the sum of travel times (most efficient overall).
  * - min_max: minimise the worst single travel time (fairest).
  * - min_variance: make travel times as even as possible across people.
- * - best: balance all three by averaging their normalised costs (the default).
+ * - best: balance all three by blending their normalised costs, weighting the
+ *   two fairness measures above raw efficiency so the result lands between
+ *   people rather than next to one of them (the default). See
+ *   BEST_OBJECTIVE_WEIGHTS.
  */
 export type Objective = "min_total" | "min_max" | "min_variance" | "best";
 

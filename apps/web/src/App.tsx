@@ -17,10 +17,11 @@ import {
   reverseGeocode,
   search,
 } from "./api";
+import { type Favourite } from "./favourites";
 import { reportError } from "./reporting";
 import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
-import { LogoMark, MeetIcon, MoonIcon, SunIcon } from "./components/icons";
+import { GitHubIcon, LogoMark, MeetIcon, MoonIcon, SunIcon } from "./components/icons";
 import { LoadingResults } from "./components/LoadingResults";
 import { MapView, type MapOrigin } from "./components/MapView";
 import { ModePicker } from "./components/ModePicker";
@@ -33,6 +34,7 @@ import {
   type SearchUrlState,
   writeSearchStateToUrl,
 } from "./urlState";
+import { useFavourites } from "./useFavourites";
 import { useTheme } from "./useTheme";
 
 const MAX_PEOPLE = 10;
@@ -161,6 +163,7 @@ function coordLabel(lat: number, lng: number): string {
 
 export function App() {
   const { theme, toggle: toggleTheme } = useTheme();
+  const { favourites, saveFavourite, deleteFavourite } = useFavourites();
   const [people, setPeople] = useState<Person[]>(() => [newPerson(), newPerson()]);
   const [category, setCategory] = useState<VenueCategory>("cafe");
   const [mode, setMode] = useState<TravelMode>("transit");
@@ -182,6 +185,20 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
 
+  // Tracks the latest async mutation per person so out of order results (blur
+  // geocode, place details, reverse geocode) never overwrite a newer update.
+  const personSeq = useRef<Map<string, number>>(new Map());
+
+  function nextSeq(id: string): number {
+    const seq = (personSeq.current.get(id) ?? 0) + 1;
+    personSeq.current.set(id, seq);
+    return seq;
+  }
+
+  function isCurrentSeq(id: string, seq: number): boolean {
+    return personSeq.current.get(id) === seq;
+  }
+
   function updatePerson(id: string, patch: Partial<Person>) {
     setPeople((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }
@@ -192,6 +209,37 @@ export function App() {
 
   function removePerson(id: string) {
     setPeople((prev) => (prev.length <= 2 ? prev : prev.filter((p) => p.id !== id)));
+  }
+
+  function saveFavouriteFromPerson(id: string) {
+    const person = people.find((p) => p.id === id);
+    if (!person || !person.location) {
+      return;
+    }
+    const label = person.label.trim();
+    if (!label) {
+      return;
+    }
+    saveFavourite({
+      id: crypto.randomUUID(),
+      label,
+      address: person.address,
+      location: person.location,
+      resolvedAddress: person.resolvedAddress,
+    });
+  }
+
+  function insertFavourite(id: string, favourite: Favourite) {
+    // Supersede any in-flight resolve so a late result cannot overwrite this.
+    nextSeq(id);
+    updatePerson(id, {
+      label: favourite.label,
+      address: favourite.address || favourite.resolvedAddress || formatCoords(favourite.location),
+      location: favourite.location,
+      resolvedAddress: favourite.resolvedAddress,
+      status: "ok",
+      error: undefined,
+    });
   }
 
   const geolocationSupported = useMemo(
@@ -208,13 +256,20 @@ export function App() {
       return;
     }
 
+    const seq = nextSeq(id);
     updatePerson(id, { status: "locating", error: undefined });
 
     let position: GeolocationPosition;
     try {
       position = await getCurrentPosition();
     } catch (geoError) {
+      if (!isCurrentSeq(id, seq)) {
+        return;
+      }
       updatePerson(id, { status: "error", error: geolocationMessage(geoError) });
+      return;
+    }
+    if (!isCurrentSeq(id, seq)) {
       return;
     }
 
@@ -229,6 +284,9 @@ export function App() {
 
     try {
       const result = await reverseGeocode(latitude, longitude);
+      if (!isCurrentSeq(id, seq)) {
+        return;
+      }
       if (!result) {
         updatePerson(id, fallback);
         return;
@@ -241,6 +299,9 @@ export function App() {
         error: undefined,
       });
     } catch {
+      if (!isCurrentSeq(id, seq)) {
+        return;
+      }
       // The coordinates are still usable even if the address lookup fails,
       // so fill them in rather than blocking the form.
       updatePerson(id, fallback);
@@ -248,6 +309,9 @@ export function App() {
   }
 
   async function resolvePerson(id: string) {
+    // Bump first so clearing the input (the early return below) also supersedes
+    // any resolve still in flight from a previous blur.
+    const seq = nextSeq(id);
     const person = people.find((p) => p.id === id);
     if (!person || !needsResolve(person)) {
       if (person && !person.address.trim()) {
@@ -257,19 +321,18 @@ export function App() {
     }
     updatePerson(id, { status: "loading" });
     const resolved = await resolveOne(person);
+    if (!isCurrentSeq(id, seq)) {
+      return;
+    }
     setPeople((prev) => prev.map((p) => (p.id === id ? resolved : p)));
   }
 
-  // Tracks the latest selection per person so out of order resolutions are dropped.
-  const selectPlaceSeq = useRef<Map<string, number>>(new Map());
-
   async function selectPlace(id: string, prediction: AutocompletePrediction) {
-    const seq = (selectPlaceSeq.current.get(id) ?? 0) + 1;
-    selectPlaceSeq.current.set(id, seq);
+    const seq = nextSeq(id);
     updatePerson(id, { address: prediction.description, status: "loading", error: undefined });
     try {
       const result = await placeDetails(prediction.placeId);
-      if (selectPlaceSeq.current.get(id) !== seq) {
+      if (!isCurrentSeq(id, seq)) {
         return;
       }
       if (!result) {
@@ -283,7 +346,7 @@ export function App() {
         error: undefined,
       });
     } catch (error) {
-      if (selectPlaceSeq.current.get(id) !== seq) {
+      if (!isCurrentSeq(id, seq)) {
         return;
       }
       const message = error instanceof Error ? error.message : "Lookup failed";
@@ -392,11 +455,30 @@ export function App() {
   async function handleSearch() {
     setError(null);
 
+    // Claim a sequence for every row we are about to resolve so a favourite
+    // insert or a fresh resolve made while the search runs is not reverted.
+    const seqs = new Map<string, number>();
+    for (const person of people) {
+      if (needsResolve(person)) {
+        seqs.set(person.id, nextSeq(person.id));
+      }
+    }
+
     setPeople((prev) => prev.map((p) => (needsResolve(p) ? { ...p, status: "loading" } : p)));
     const resolved = await Promise.all(
       people.map((p) => (needsResolve(p) ? resolveOne(p) : Promise.resolve(p))),
     );
-    setPeople(resolved);
+    const resolvedById = new Map(resolved.map((p) => [p.id, p]));
+    setPeople((prev) =>
+      prev.map((p) => {
+        const seq = seqs.get(p.id);
+        // Only rows we resolved here are touched, and only while still current.
+        if (seq === undefined || !isCurrentSeq(p.id, seq)) {
+          return p;
+        }
+        return resolvedById.get(p.id) ?? p;
+      }),
+    );
 
     const origins = resolved
       .filter((p) => p.location)
@@ -504,6 +586,16 @@ export function App() {
           </div>
         </div>
         <div className="topbar__actions">
+          <a
+            href="https://github.com/chase-mew/meetup-finder"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="theme-toggle"
+            aria-label="View source on GitHub"
+            title="View source on GitHub"
+          >
+            <GitHubIcon />
+          </a>
           <button
             type="button"
             className="theme-toggle"
@@ -526,12 +618,16 @@ export function App() {
               people={people}
               maxPeople={MAX_PEOPLE}
               geolocationSupported={geolocationSupported}
+              favourites={favourites}
               onUpdate={updatePerson}
               onResolve={resolvePerson}
               onSelectPlace={selectPlace}
               onUseMyLocation={useMyLocation}
               onRemove={removePerson}
               onAdd={addPerson}
+              onSaveFavourite={saveFavouriteFromPerson}
+              onInsertFavourite={insertFavourite}
+              onDeleteFavourite={deleteFavourite}
             />
           </section>
 

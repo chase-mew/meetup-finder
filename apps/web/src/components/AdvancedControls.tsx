@@ -236,30 +236,40 @@ export function AdvancedControls(props: AdvancedControlsProps) {
 
       {props.showTransit ? (
         <div className="field">
-          <span className="field__label">Transit preferences</span>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={props.excludeBuses}
-              onChange={(event) => props.onExcludeBuses(event.target.checked)}
-            />
-            <span>Exclude buses</span>
-          </label>
-          <label className="field field--inline">
-            <span className="field__label">Routing</span>
-            <select
-              value={props.transitRouting}
-              onChange={(event) =>
-                props.onTransitRouting(event.target.value as TransitRoutingChoice)
-              }
-            >
-              {TRANSIT_ROUTING.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <span className="field__label">Public transport options</span>
+          <div className="subfields">
+            <div className="subfield">
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={props.excludeBuses}
+                  onChange={(event) => props.onExcludeBuses(event.target.checked)}
+                />
+                <span>Exclude buses</span>
+              </label>
+              <p className="field__hint">Plan with trains and the tube only, skipping bus legs.</p>
+            </div>
+            <div className="subfield">
+              <label className="field field--inline">
+                <span className="field__label field__label--soft">Routing</span>
+                <select
+                  value={props.transitRouting}
+                  onChange={(event) =>
+                    props.onTransitRouting(event.target.value as TransitRoutingChoice)
+                  }
+                >
+                  {TRANSIT_ROUTING.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="field__hint">
+                How journeys are planned: fewer changes, or less time walking.
+              </p>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
