@@ -3,13 +3,18 @@ import type { Person } from "../types";
 interface OriginsFormProps {
   people: Person[];
   maxPeople: number;
+  geolocationSupported: boolean;
   onUpdate: (id: string, patch: Partial<Person>) => void;
   onResolve: (id: string) => void;
+  onUseMyLocation: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
 }
 
 function StatusLine({ person }: { person: Person }) {
+  if (person.status === "locating") {
+    return <span className="origin__status origin__status--loading">Getting your location…</span>;
+  }
   if (person.status === "loading") {
     return <span className="origin__status origin__status--loading">Finding location…</span>;
   }
@@ -33,8 +38,10 @@ function StatusLine({ person }: { person: Person }) {
 export function OriginsForm({
   people,
   maxPeople,
+  geolocationSupported,
   onUpdate,
   onResolve,
+  onUseMyLocation,
   onRemove,
   onAdd,
 }: OriginsFormProps) {
@@ -69,6 +76,17 @@ export function OriginsForm({
                   }
                 }}
               />
+              {geolocationSupported ? (
+                <button
+                  type="button"
+                  className="origin__locate"
+                  onClick={() => onUseMyLocation(person.id)}
+                  disabled={person.status === "locating"}
+                >
+                  <span aria-hidden="true">◎</span>
+                  {person.status === "locating" ? "Locating…" : "Use my location"}
+                </button>
+              ) : null}
             </div>
             <button
               type="button"

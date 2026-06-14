@@ -36,6 +36,8 @@ export {
 
 export { scoreVenues } from "./scoring";
 
+export { SEARCH_DEFAULTS } from "./defaults";
+
 export type {
   SearchRequestBody,
   SearchResponseBody,

@@ -1,3 +1,4 @@
+import { SEARCH_DEFAULTS } from "@meetup/core";
 import { describe, expect, it } from "vitest";
 import {
   type SearchUrlState,
@@ -85,11 +86,15 @@ describe("decodeSearchState", () => {
       ],
       category: "cafe",
       mode: "transit",
-      objective: "best",
-      ratingWeight: 0.3,
-      limit: 5,
+      objective: SEARCH_DEFAULTS.objective,
+      ratingWeight: SEARCH_DEFAULTS.ratingWeight,
+      limit: SEARCH_DEFAULTS.limit,
       openNow: false,
     });
+  });
+
+  it("accepts the park category", () => {
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&cat=park")?.category).toBe("park");
   });
 
   it("falls back to defaults when enum values are unknown", () => {
@@ -104,13 +109,19 @@ describe("decodeSearchState", () => {
   it("clamps the rating weight to the 0..1 range", () => {
     expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rw=2")?.ratingWeight).toBe(1);
     expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rw=-1")?.ratingWeight).toBe(0);
-    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rw=foo")?.ratingWeight).toBe(0.3);
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&rw=foo")?.ratingWeight).toBe(
+      SEARCH_DEFAULTS.ratingWeight,
+    );
   });
 
   it("rejects a non positive or fractional limit", () => {
-    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=0")?.limit).toBe(5);
-    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=2.5")?.limit).toBe(5);
-    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=8")?.limit).toBe(8);
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=0")?.limit).toBe(
+      SEARCH_DEFAULTS.limit,
+    );
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=2.5")?.limit).toBe(
+      SEARCH_DEFAULTS.limit,
+    );
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=3")?.limit).toBe(3);
   });
 
   it("clamps the limit to the maximum the API allows", () => {

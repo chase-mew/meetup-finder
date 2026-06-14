@@ -12,6 +12,7 @@ describe("categoryToTextQuery", () => {
     expect(categoryToTextQuery("lunch")).toContain("restaurant");
     expect(categoryToTextQuery("dinner")).toContain("restaurant");
     expect(categoryToTextQuery("pub")).toBe("pub");
+    expect(categoryToTextQuery("park")).toBe("park");
   });
 });
 
@@ -32,6 +33,16 @@ describe("matchesCategoryPrimaryType", () => {
     expect(matchesCategoryPrimaryType("pub", "pub")).toBe(true);
     expect(matchesCategoryPrimaryType("pub", "bar")).toBe(true);
     expect(matchesCategoryPrimaryType("pub", "wine_bar")).toBe(true);
+  });
+
+  it("accepts parks and outdoor spaces for the park category", () => {
+    expect(matchesCategoryPrimaryType("park", "park")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "national_park")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "garden")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "dog_park")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "plaza")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "restaurant")).toBe(false);
+    expect(matchesCategoryPrimaryType("park", undefined)).toBe(false);
   });
 
   it("rejects hotels and cinemas that merely contain a bar", () => {

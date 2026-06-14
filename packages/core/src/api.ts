@@ -5,13 +5,13 @@ export interface SearchRequestBody {
   origins: Origin[];
   category: VenueCategory;
   mode: TravelMode;
-  /** Defaults to min_max (fairest worst case). */
+  /** Defaults to best (balanced across all objectives). See SEARCH_DEFAULTS. */
   objective?: Objective;
-  /** How much travel matters, 0..1. Defaults to 0.7. */
+  /** How much travel matters, 0..1. Defaults to 0.7. See SEARCH_DEFAULTS. */
   travelWeight?: number;
-  /** How much rating matters, 0..1. Defaults to 0.3. */
+  /** How much rating matters, 0..1. Defaults to 0.3. See SEARCH_DEFAULTS. */
   ratingWeight?: number;
-  /** Number of results to return. Defaults to 5. */
+  /** Number of results to return. Defaults to 8. See SEARCH_DEFAULTS. */
   limit?: number;
   /** Only consider venues currently open. */
   openNow?: boolean;

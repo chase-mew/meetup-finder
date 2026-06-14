@@ -1,4 +1,4 @@
-import type { SearchRequestBody } from "@meetup/core";
+import { SEARCH_DEFAULTS, type SearchRequestBody } from "@meetup/core";
 
 /** A small async cache abstraction so memory and KV are interchangeable. */
 export interface AsyncCache {
@@ -93,10 +93,10 @@ export function buildSearchCacheKey(body: SearchRequestBody): string {
     o: origins,
     c: body.category,
     m: body.mode,
-    obj: body.objective ?? "min_max",
-    tw: body.travelWeight ?? 0.7,
-    rw: body.ratingWeight ?? 0.3,
-    l: body.limit ?? 5,
+    obj: body.objective ?? SEARCH_DEFAULTS.objective,
+    tw: body.travelWeight ?? SEARCH_DEFAULTS.travelWeight,
+    rw: body.ratingWeight ?? SEARCH_DEFAULTS.ratingWeight,
+    l: body.limit ?? SEARCH_DEFAULTS.limit,
     on: body.openNow ?? false,
     r: body.searchRadiusMeters ?? null,
   };
@@ -105,4 +105,9 @@ export function buildSearchCacheKey(body: SearchRequestBody): string {
 
 export function buildGeocodeCacheKey(query: string): string {
   return `geo:v1:${query.trim().toLowerCase()}`;
+}
+
+/** Round coordinates so nearby taps share a reverse geocode cache entry. */
+export function buildReverseGeocodeCacheKey(lat: number, lng: number): string {
+  return `revgeo:v1:${roundCoord(lat)},${roundCoord(lng)}`;
 }

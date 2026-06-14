@@ -1,4 +1,4 @@
-import type { LatLng, Objective, TravelMode, VenueCategory } from "@meetup/core";
+import { type LatLng, type Objective, SEARCH_DEFAULTS, type TravelMode, type VenueCategory } from "@meetup/core";
 
 /** A single origin as stored in the URL: a label plus rounded coordinates. */
 export interface UrlOrigin {
@@ -17,16 +17,16 @@ export interface SearchUrlState {
   openNow: boolean;
 }
 
-const CATEGORIES: readonly VenueCategory[] = ["cafe", "lunch", "dinner", "pub"];
+const CATEGORIES: readonly VenueCategory[] = ["cafe", "lunch", "dinner", "pub", "park"];
 const MODES: readonly TravelMode[] = ["transit", "walking", "cycling", "driving"];
 const OBJECTIVES: readonly Objective[] = ["min_total", "min_max", "min_variance", "best"];
 
 const DEFAULTS = {
   category: "cafe" as VenueCategory,
   mode: "transit" as TravelMode,
-  objective: "best" as Objective,
-  ratingWeight: 0.3,
-  limit: 5,
+  objective: SEARCH_DEFAULTS.objective,
+  ratingWeight: SEARCH_DEFAULTS.ratingWeight,
+  limit: SEARCH_DEFAULTS.limit,
   openNow: false,
 };
 

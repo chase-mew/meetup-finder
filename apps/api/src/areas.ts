@@ -167,11 +167,17 @@ function stationsInBox(bbox: BoundingBox): Station[] {
 
 /**
  * Build the candidate anchor points for area finding: the weighted geometric
- * median, a dense grid for coverage, and London transit stations (interchanges
- * first) to capture transport hubs that a plain grid would miss. The set is
- * deduplicated and capped to a matrix budget that scales with group size.
+ * median, a dense grid for coverage, and (for transit only) London transit
+ * stations (interchanges first) to capture transport hubs that a plain grid
+ * would miss. Stations are not meaningful anchors for driving or walking, so
+ * they are only added when `mode === "transit"`. The set is deduplicated and
+ * capped to a matrix budget that scales with group size.
  */
-export function buildAnchors(origins: Origin[], config: AreaFinderConfig): LatLng[] {
+export function buildAnchors(
+  origins: Origin[],
+  config: AreaFinderConfig,
+  mode: TravelMode,
+): LatLng[] {
   if (origins.length === 0) {
     return [];
   }
@@ -182,10 +188,13 @@ export function buildAnchors(origins: Origin[], config: AreaFinderConfig): LatLn
   );
   const bbox = boundingBox([...locations, median]);
   const grid = buildGrid(bbox, config.gridSize);
-  const stations = stationsInBox(bbox)
-    .slice()
-    .sort((a, b) => b.lines - a.lines)
-    .map((s) => ({ lat: s.lat, lng: s.lng }));
+  const stations =
+    mode === "transit"
+      ? stationsInBox(bbox)
+          .slice()
+          .sort((a, b) => b.lines - a.lines)
+          .map((s) => ({ lat: s.lat, lng: s.lng }))
+      : [];
 
   const anchors = dedupePoints([median, ...grid, ...stations], 150);
 
@@ -213,7 +222,7 @@ export async function findMeetingAreas(
   if (origins.length === 0) {
     return [];
   }
-  const anchors = buildAnchors(origins, config);
+  const anchors = buildAnchors(origins, config, mode);
   if (anchors.length === 0) {
     return [];
   }
