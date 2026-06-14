@@ -21,7 +21,7 @@ import { type Favourite } from "./favourites";
 import { reportError } from "./reporting";
 import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
-import { LogoMark, MeetIcon, MoonIcon, SunIcon } from "./components/icons";
+import { GitHubIcon, LogoMark, MeetIcon, MoonIcon, SunIcon } from "./components/icons";
 import { LoadingResults } from "./components/LoadingResults";
 import { MapView, type MapOrigin } from "./components/MapView";
 import { ModePicker } from "./components/ModePicker";
@@ -586,6 +586,16 @@ export function App() {
           </div>
         </div>
         <div className="topbar__actions">
+          <a
+            href="https://github.com/chase-mew/meetup-finder"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="theme-toggle"
+            aria-label="View source on GitHub"
+            title="View source on GitHub"
+          >
+            <GitHubIcon />
+          </a>
           <button
             type="button"
             className="theme-toggle"
