@@ -76,7 +76,7 @@ describe("runSearch", () => {
     expect(top.reachable).toBe(true);
   });
 
-  it("prunes candidates before the travel matrix to control cost", async () => {
+  it("prunes candidates before the venue travel matrix to control cost", async () => {
     const places = fakePlaces();
     const travel = fakeTravel();
     await runSearch({ places, travel }, baseBody, {
@@ -84,8 +84,12 @@ describe("runSearch", () => {
       candidateLimit: 3,
     });
 
-    const matrixCall = (travel.matrix as ReturnType<typeof vi.fn>).mock.calls[0]![0] as TravelMatrixRequest;
-    expect(matrixCall.destinations.length).toBe(3);
+    // The pipeline runs two matrices: stage one over area anchors, then the
+    // venue matrix. The venue matrix (the last call) is the pruned set.
+    const calls = (travel.matrix as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    const venueMatrix = calls.at(-1)![0] as TravelMatrixRequest;
+    expect(venueMatrix.destinations.length).toBe(3);
   });
 
   it("respects the result limit", async () => {

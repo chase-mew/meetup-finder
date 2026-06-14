@@ -8,11 +8,14 @@
 
 const BASE = process.env.API_BASE ?? "http://localhost:8787";
 
-const PEOPLE = [
+const DEFAULT_PEOPLE = [
   { label: "Alice", query: "King's Cross Station, London" },
   { label: "Bob", query: "Waterloo Station, London" },
   { label: "Carol", query: "Camden Town, London" },
 ];
+
+// Override with SMOKE_PEOPLE, a JSON array of { label, query }.
+const PEOPLE = process.env.SMOKE_PEOPLE ? JSON.parse(process.env.SMOKE_PEOPLE) : DEFAULT_PEOPLE;
 
 const CATEGORY = process.env.SMOKE_CATEGORY ?? "cafe";
 const MODE = process.env.SMOKE_MODE ?? "transit";
