@@ -5,9 +5,11 @@ import type { Person } from "../types";
 interface OriginsFormProps {
   people: Person[];
   maxPeople: number;
+  geolocationSupported: boolean;
   onUpdate: (id: string, patch: Partial<Person>) => void;
   onResolve: (id: string) => void;
   onSelectPlace: (id: string, prediction: AutocompletePrediction) => void;
+  onUseMyLocation: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
 }
@@ -15,6 +17,9 @@ interface OriginsFormProps {
 const DEBOUNCE_MS = 250;
 
 function StatusLine({ person }: { person: Person }) {
+  if (person.status === "locating") {
+    return <span className="origin__status origin__status--loading">Getting your location…</span>;
+  }
   if (person.status === "loading") {
     return <span className="origin__status origin__status--loading">Finding location…</span>;
   }
@@ -39,9 +44,11 @@ interface OriginRowProps {
   person: Person;
   index: number;
   canRemove: boolean;
+  geolocationSupported: boolean;
   onUpdate: (id: string, patch: Partial<Person>) => void;
   onResolve: (id: string) => void;
   onSelectPlace: (id: string, prediction: AutocompletePrediction) => void;
+  onUseMyLocation: (id: string) => void;
   onRemove: (id: string) => void;
 }
 
@@ -49,9 +56,11 @@ function OriginRow({
   person,
   index,
   canRemove,
+  geolocationSupported,
   onUpdate,
   onResolve,
   onSelectPlace,
+  onUseMyLocation,
   onRemove,
 }: OriginRowProps) {
   const [suggestions, setSuggestions] = useState<AutocompletePrediction[]>([]);
@@ -222,6 +231,17 @@ function OriginRow({
               </ul>
             ) : null}
           </div>
+          {geolocationSupported ? (
+            <button
+              type="button"
+              className="origin__locate"
+              onClick={() => onUseMyLocation(person.id)}
+              disabled={person.status === "locating"}
+            >
+              <span aria-hidden="true">◎</span>
+              {person.status === "locating" ? "Locating…" : "Use my location"}
+            </button>
+          ) : null}
         </div>
         <button
           type="button"
@@ -241,9 +261,11 @@ function OriginRow({
 export function OriginsForm({
   people,
   maxPeople,
+  geolocationSupported,
   onUpdate,
   onResolve,
   onSelectPlace,
+  onUseMyLocation,
   onRemove,
   onAdd,
 }: OriginsFormProps) {
@@ -255,9 +277,11 @@ export function OriginsForm({
           person={person}
           index={index}
           canRemove={people.length > 2}
+          geolocationSupported={geolocationSupported}
           onUpdate={onUpdate}
           onResolve={onResolve}
           onSelectPlace={onSelectPlace}
+          onUseMyLocation={onUseMyLocation}
           onRemove={onRemove}
         />
       ))}

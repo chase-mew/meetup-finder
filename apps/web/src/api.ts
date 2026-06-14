@@ -23,6 +23,9 @@ async function parseError(response: Response): Promise<string> {
   } catch {
     // ignore
   }
+  if (response.status === 429) {
+    return "Too many requests. Please slow down and try again in a moment.";
+  }
   return `Request failed (${response.status})`;
 }
 
@@ -53,6 +56,18 @@ export async function autocomplete(
 
 export async function placeDetails(placeId: string): Promise<GeocodeResponse | null> {
   const response = await fetch(`${API_BASE}/api/place?placeId=${encodeURIComponent(placeId)}`);
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  return (await response.json()) as GeocodeResponse;
+}
+
+export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeResponse | null> {
+  const query = `lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`;
+  const response = await fetch(`${API_BASE}/api/reverse-geocode?${query}`);
   if (response.status === 404) {
     return null;
   }

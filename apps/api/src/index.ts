@@ -9,6 +9,7 @@ import {
 } from "@meetup/providers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createMiddleware } from "hono/factory";
 import {
   type AsyncCache,
   KvCache,
@@ -16,12 +17,22 @@ import {
   buildAutocompleteCacheKey,
   buildGeocodeCacheKey,
   buildPlaceCacheKey,
+  buildReverseGeocodeCacheKey,
   buildSearchCacheKey,
 } from "./cache";
+import {
+  KvRateLimitStore,
+  MemoryRateLimitStore,
+  RateLimiter,
+  type RateLimitEnv,
+  type RateLimitStore,
+  rateLimitConfigFromEnv,
+  rateLimitMessage,
+} from "./rateLimit";
 import { runSearch } from "./search";
 import { validateSearchRequest } from "./validation";
 
-interface Env {
+interface Env extends RateLimitEnv {
   GOOGLE_MAPS_API_KEY: string;
   /** Optional KV namespace for durable caching across isolates. */
   CACHE?: KVNamespace;
@@ -40,9 +51,53 @@ function cacheFor(env: Env): AsyncCache {
   return env.CACHE ? new KvCache(env.CACHE) : memoryCache;
 }
 
+// Per isolate fallback store for rate limit state when no KV is bound.
+const memoryRateLimitStore = new MemoryRateLimitStore();
+
+function rateLimitStoreFor(env: Env): RateLimitStore {
+  return env.CACHE ? new KvRateLimitStore(env.CACHE) : memoryRateLimitStore;
+}
+
+function clientIdOf(c: { req: { header: (name: string) => string | undefined } }): string {
+  const cfIp = c.req.header("cf-connecting-ip");
+  if (cfIp) {
+    return cfIp;
+  }
+  const forwarded = c.req.header("x-forwarded-for");
+  const first = forwarded?.split(",")[0]?.trim();
+  return first || "unknown";
+}
+
+// Throttles paid endpoints per client, keyed by cf-connecting-ip, with an
+// optional global daily ceiling. Configured via RATE_LIMIT_* env vars.
+const rateLimit = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+  const config = rateLimitConfigFromEnv(c.env);
+  if (!config) {
+    return next();
+  }
+  const limiter = new RateLimiter(rateLimitStoreFor(c.env), config);
+  let result: Awaited<ReturnType<RateLimiter["check"]>>;
+  try {
+    result = await limiter.check(clientIdOf(c));
+  } catch (error) {
+    // Fail open: a transient store outage must not take the endpoint down.
+    console.error("Rate limiter check failed, allowing request:", error);
+    return next();
+  }
+  if (!result.allowed) {
+    c.header("Retry-After", String(result.retryAfterSeconds));
+    return c.json({ error: rateLimitMessage(result) }, 429);
+  }
+  return next();
+});
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", cors());
+
+// Apply only to the paid endpoints that fan out into Google calls.
+app.use("/api/search", rateLimit);
+app.use("/api/geocode", rateLimit);
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "meetup-finder-api" }));
 
@@ -127,6 +182,34 @@ app.get("/api/place", async (c) => {
   }
 });
 
+app.get("/api/reverse-geocode", async (c) => {
+  const apiKey = c.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "Server is missing GOOGLE_MAPS_API_KEY" }, 500);
+  }
+  const lat = parseCoord(c.req.query("lat"), 90);
+  const lng = parseCoord(c.req.query("lng"), 180);
+  if (lat === null || lng === null) {
+    return c.json({ error: "Valid lat and lng query parameters are required" }, 400);
+  }
+
+  const cache = cacheFor(c.env);
+  const cacheKey = buildReverseGeocodeCacheKey(lat, lng);
+  const cached = await cache.get<GeocodeResult | null>(cacheKey);
+  if (cached !== undefined) {
+    return cached ? c.json(cached) : c.json({ error: "No match found" }, 404);
+  }
+
+  try {
+    const provider = new GoogleGeocodingProvider({ apiKey });
+    const result = await provider.reverseGeocode({ lat, lng });
+    await cache.set(cacheKey, result, GEOCODE_TTL_SECONDS);
+    return result ? c.json(result) : c.json({ error: "No match found" }, 404);
+  } catch (error) {
+    return c.json({ error: messageOf(error) }, 502);
+  }
+});
+
 app.post("/api/search", async (c) => {
   const apiKey = c.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
@@ -196,6 +279,17 @@ function clampInt(value: string | undefined, fallback: number, min: number, max:
     return fallback;
   }
   return Math.min(max, Math.max(min, parsed));
+}
+
+export function parseCoord(value: string | undefined, max: number): number | null {
+  if (value === undefined || value.trim() === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || Math.abs(parsed) > max) {
+    return null;
+  }
+  return parsed;
 }
 
 function messageOf(error: unknown): string {

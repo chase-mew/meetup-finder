@@ -3,6 +3,7 @@ import {
   categoryToTextQuery,
   matchesCategoryPrimaryType,
   parseDurationSeconds,
+  transitPreferencesToGoogle,
   travelModeToGoogle,
 } from "./shared";
 
@@ -12,6 +13,7 @@ describe("categoryToTextQuery", () => {
     expect(categoryToTextQuery("lunch")).toContain("restaurant");
     expect(categoryToTextQuery("dinner")).toContain("restaurant");
     expect(categoryToTextQuery("pub")).toBe("pub");
+    expect(categoryToTextQuery("park")).toBe("park");
   });
 });
 
@@ -34,6 +36,16 @@ describe("matchesCategoryPrimaryType", () => {
     expect(matchesCategoryPrimaryType("pub", "wine_bar")).toBe(true);
   });
 
+  it("accepts parks and outdoor spaces for the park category", () => {
+    expect(matchesCategoryPrimaryType("park", "park")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "national_park")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "garden")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "dog_park")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "plaza")).toBe(true);
+    expect(matchesCategoryPrimaryType("park", "restaurant")).toBe(false);
+    expect(matchesCategoryPrimaryType("park", undefined)).toBe(false);
+  });
+
   it("rejects hotels and cinemas that merely contain a bar", () => {
     // A hotel's primary type is lodging even if it has a bar secondary type.
     expect(matchesCategoryPrimaryType("pub", "lodging")).toBe(false);
@@ -51,6 +63,46 @@ describe("travelModeToGoogle", () => {
 
   it("rejects cycling, which the matrix endpoint cannot do", () => {
     expect(() => travelModeToGoogle("cycling")).toThrow();
+  });
+});
+
+describe("transitPreferencesToGoogle", () => {
+  it("returns undefined when no preferences are given", () => {
+    expect(transitPreferencesToGoogle(undefined)).toBeUndefined();
+    expect(transitPreferencesToGoogle({})).toBeUndefined();
+  });
+
+  it("maps allowed submodes to the Routes API enum", () => {
+    expect(
+      transitPreferencesToGoogle({ allowedModes: ["subway", "train", "light_rail", "rail"] }),
+    ).toEqual({
+      allowedTravelModes: ["SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"],
+    });
+  });
+
+  it("maps the routing preference", () => {
+    expect(transitPreferencesToGoogle({ routingPreference: "fewer_transfers" })).toEqual({
+      routingPreference: "FEWER_TRANSFERS",
+    });
+    expect(transitPreferencesToGoogle({ routingPreference: "less_walking" })).toEqual({
+      routingPreference: "LESS_WALKING",
+    });
+  });
+
+  it("combines submodes and routing preference", () => {
+    expect(
+      transitPreferencesToGoogle({
+        allowedModes: ["bus"],
+        routingPreference: "less_walking",
+      }),
+    ).toEqual({
+      allowedTravelModes: ["BUS"],
+      routingPreference: "LESS_WALKING",
+    });
+  });
+
+  it("ignores an empty allowed submodes list", () => {
+    expect(transitPreferencesToGoogle({ allowedModes: [] })).toBeUndefined();
   });
 });
 

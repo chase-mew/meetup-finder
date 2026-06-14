@@ -2,6 +2,9 @@ export type {
   LatLng,
   TravelMode,
   VenueCategory,
+  TransitTravelMode,
+  TransitRoutingPreference,
+  TransitPreferences,
   Objective,
   BaseObjective,
   Origin,
@@ -35,6 +38,8 @@ export {
 } from "./rating";
 
 export { scoreVenues } from "./scoring";
+
+export { SEARCH_DEFAULTS } from "./defaults";
 
 export type {
   SearchRequestBody,

@@ -2,6 +2,9 @@ import type {
   Objective,
   Origin,
   SearchRequestBody,
+  TransitPreferences,
+  TransitRoutingPreference,
+  TransitTravelMode,
   TravelMode,
   VenueCategory,
 } from "@meetup/core";
@@ -10,10 +13,12 @@ export type ValidationResult =
   | { ok: true; value: SearchRequestBody }
   | { ok: false; error: string };
 
-const CATEGORIES: VenueCategory[] = ["cafe", "lunch", "dinner", "pub"];
+const CATEGORIES: VenueCategory[] = ["cafe", "lunch", "dinner", "pub", "park"];
 // Cycling is intentionally excluded: the Routes matrix endpoint cannot do it.
 const MODES: TravelMode[] = ["transit", "walking", "driving"];
 const OBJECTIVES: Objective[] = ["best", "min_total", "min_max", "min_variance"];
+const TRANSIT_MODES: TransitTravelMode[] = ["bus", "subway", "train", "light_rail", "rail"];
+const TRANSIT_ROUTING: TransitRoutingPreference[] = ["less_walking", "fewer_transfers"];
 
 const MAX_ORIGINS = 10;
 
@@ -72,6 +77,47 @@ function parseWeight(value: unknown, field: string): number | string | undefined
     return `${field} must be a number between 0 and 1`;
   }
   return value;
+}
+
+function parseTransitPreferences(raw: unknown): TransitPreferences | string | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    return "transit must be an object";
+  }
+
+  const preferences: TransitPreferences = {};
+
+  if (raw.allowedModes !== undefined) {
+    if (!Array.isArray(raw.allowedModes)) {
+      return "transit.allowedModes must be an array";
+    }
+    const allowedModes: TransitTravelMode[] = [];
+    for (const mode of raw.allowedModes) {
+      if (typeof mode !== "string" || !TRANSIT_MODES.includes(mode as TransitTravelMode)) {
+        return `transit.allowedModes must contain only: ${TRANSIT_MODES.join(", ")}`;
+      }
+      if (!allowedModes.includes(mode as TransitTravelMode)) {
+        allowedModes.push(mode as TransitTravelMode);
+      }
+    }
+    if (allowedModes.length > 0) {
+      preferences.allowedModes = allowedModes;
+    }
+  }
+
+  if (raw.routingPreference !== undefined) {
+    if (
+      typeof raw.routingPreference !== "string" ||
+      !TRANSIT_ROUTING.includes(raw.routingPreference as TransitRoutingPreference)
+    ) {
+      return `transit.routingPreference must be one of: ${TRANSIT_ROUTING.join(", ")}`;
+    }
+    preferences.routingPreference = raw.routingPreference as TransitRoutingPreference;
+  }
+
+  return Object.keys(preferences).length > 0 ? preferences : undefined;
 }
 
 /** Validate and normalise an untrusted request body. */
@@ -135,6 +181,11 @@ export function validateSearchRequest(input: unknown): ValidationResult {
 
   const openNow = input.openNow === undefined ? undefined : input.openNow === true;
 
+  const transit = parseTransitPreferences(input.transit);
+  if (typeof transit === "string") {
+    return { ok: false, error: transit };
+  }
+
   return {
     ok: true,
     value: {
@@ -147,6 +198,7 @@ export function validateSearchRequest(input: unknown): ValidationResult {
       limit,
       openNow,
       searchRadiusMeters,
+      transit,
     },
   };
 }

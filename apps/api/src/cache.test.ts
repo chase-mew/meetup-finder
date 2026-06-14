@@ -5,6 +5,7 @@ import {
   buildAutocompleteCacheKey,
   buildGeocodeCacheKey,
   buildPlaceCacheKey,
+  buildReverseGeocodeCacheKey,
   buildSearchCacheKey,
   roundCoord,
 } from "./cache";
@@ -34,6 +35,20 @@ describe("buildAutocompleteCacheKey", () => {
   it("differs from the geocode namespace for the same query", () => {
     expect(buildAutocompleteCacheKey("kings cross")).not.toBe(
       buildGeocodeCacheKey("kings cross"),
+    );
+  });
+});
+
+describe("buildReverseGeocodeCacheKey", () => {
+  it("rounds coordinates so nearby taps share a key", () => {
+    expect(buildReverseGeocodeCacheKey(51.530812, -0.123881)).toBe(
+      buildReverseGeocodeCacheKey(51.53072, -0.12391),
+    );
+  });
+
+  it("differs for distinct coordinates", () => {
+    expect(buildReverseGeocodeCacheKey(51.53, -0.12)).not.toBe(
+      buildReverseGeocodeCacheKey(51.5, -0.11),
     );
   });
 });

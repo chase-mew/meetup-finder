@@ -80,11 +80,106 @@ describe("GoogleTravelProvider.matrix", () => {
     }
   });
 
+  it("runs chunks concurrently but within the concurrency limit", async () => {
+    // 3 origins => 33 destinations per request => 10 chunks for 330 destinations.
+    const destinations = makeDestinations(330);
+    let active = 0;
+    let maxActive = 0;
+    const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const body = JSON.parse(String(init!.body));
+      const destCount = body.destinations.length;
+      const originCount = body.origins.length;
+      const elements = [];
+      for (let o = 0; o < originCount; o += 1) {
+        for (let d = 0; d < destCount; d += 1) {
+          elements.push({
+            originIndex: o,
+            destinationIndex: d,
+            condition: "ROUTE_EXISTS",
+            duration: "600s",
+          });
+        }
+      }
+      active -= 1;
+      return new Response(JSON.stringify(elements), { status: 200 });
+    });
+
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    const result = await provider.matrix({ origins, destinations, mode: "transit" });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(10);
+    expect(maxActive).toBeGreaterThan(1);
+    expect(maxActive).toBeLessThanOrEqual(4);
+    expect(result.cells).toHaveLength(3 * 330);
+    const maxDestIndex = Math.max(...result.cells.map((c) => c.destinationIndex));
+    expect(maxDestIndex).toBe(329);
+  });
+
+  it("propagates errors from a failing chunk", async () => {
+    const destinations = makeDestinations(330);
+    const fetchImpl = vi.fn(async () => new Response("boom", { status: 500 }));
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await expect(
+      provider.matrix({ origins, destinations, mode: "transit" }),
+    ).rejects.toThrow();
+  });
+
   it("returns empty cells when there are no destinations", async () => {
     const fetchImpl = vi.fn();
     const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
     const result = await provider.matrix({ origins, destinations: [], mode: "transit" });
     expect(result.cells).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  function okFetch() {
+    return vi.fn(async () => new Response(JSON.stringify([]), { status: 200 }));
+  }
+
+  it("sends transit preferences in the request body for transit", async () => {
+    const fetchImpl = okFetch();
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await provider.matrix({
+      origins,
+      destinations: makeDestinations(2),
+      mode: "transit",
+      transit: {
+        allowedModes: ["subway", "train", "light_rail", "rail"],
+        routingPreference: "fewer_transfers",
+      },
+    });
+
+    const body = JSON.parse(String((fetchImpl.mock.calls[0]![1] as RequestInit).body));
+    expect(body.transitPreferences).toEqual({
+      allowedTravelModes: ["SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"],
+      routingPreference: "FEWER_TRANSFERS",
+    });
+  });
+
+  it("omits transit preferences when none are requested", async () => {
+    const fetchImpl = okFetch();
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await provider.matrix({ origins, destinations: makeDestinations(2), mode: "transit" });
+
+    const body = JSON.parse(String((fetchImpl.mock.calls[0]![1] as RequestInit).body));
+    expect(body.transitPreferences).toBeUndefined();
+  });
+
+  it("ignores transit preferences for non transit modes", async () => {
+    const fetchImpl = okFetch();
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await provider.matrix({
+      origins,
+      destinations: makeDestinations(2),
+      mode: "walking",
+      transit: { routingPreference: "less_walking" },
+    });
+
+    const body = JSON.parse(String((fetchImpl.mock.calls[0]![1] as RequestInit).body));
+    expect(body.transitPreferences).toBeUndefined();
+    expect(body.travelMode).toBe("WALK");
   });
 });

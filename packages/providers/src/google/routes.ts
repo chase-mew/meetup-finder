@@ -6,6 +6,7 @@ import {
   parseDurationSeconds,
   readError,
   resolveFetch,
+  transitPreferencesToGoogle,
   travelModeToGoogle,
 } from "./shared";
 
@@ -18,6 +19,10 @@ const MATRIX_FIELD_MASK =
 // Routes API element caps: 100 for transit, 625 otherwise.
 const MAX_ELEMENTS_TRANSIT = 100;
 const MAX_ELEMENTS_DEFAULT = 625;
+
+// How many matrix chunks to send to Google at once. Kept small to reduce
+// latency on larger requests without risking rate limits.
+const MAX_MATRIX_CONCURRENCY = 4;
 
 interface RouteMatrixElement {
   originIndex?: number;
@@ -33,6 +38,32 @@ function toWaypoint(point: LatLng) {
       location: { latLng: { latitude: point.lat, longitude: point.lng } },
     },
   };
+}
+
+/**
+ * Run `worker` over `items`, keeping at most `limit` calls in flight at once.
+ * Results are returned in the original item order. The first rejection aborts
+ * the remaining work by propagating out of `Promise.all`.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) {
+        return;
+      }
+      results[index] = await worker(items[index]!, index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 export function parseMatrixElements(
@@ -74,27 +105,45 @@ export class GoogleTravelProvider implements TravelProvider {
       travelMode === "TRANSIT" ? MAX_ELEMENTS_TRANSIT : MAX_ELEMENTS_DEFAULT;
     const destinationsPerRequest = Math.max(1, Math.floor(maxElements / originCount));
 
-    const cells: TravelMatrixCell[] = [];
+    // Split the destinations into chunks that respect the element cap, then run
+    // those chunks concurrently (bounded) instead of one after another.
+    const chunkStarts: number[] = [];
     for (let start = 0; start < destinationCount; start += destinationsPerRequest) {
-      const chunk = request.destinations.slice(start, start + destinationsPerRequest);
-      const body = this.buildBody(request.origins, chunk, travelMode, request.departureTime);
-
-      const response = await fetchImpl(ROUTE_MATRIX_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": this.options.apiKey,
-          "X-Goog-FieldMask": MATRIX_FIELD_MASK,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        throw new Error(await readError(response));
-      }
-      const elements = (await response.json()) as RouteMatrixElement[];
-      cells.push(...parseMatrixElements(elements, start));
+      chunkStarts.push(start);
     }
+
+    const chunkResults = await mapWithConcurrency(
+      chunkStarts,
+      MAX_MATRIX_CONCURRENCY,
+      async (start) => {
+        const chunk = request.destinations.slice(start, start + destinationsPerRequest);
+        const body = this.buildBody(
+          request.origins,
+          chunk,
+          travelMode,
+          request.departureTime,
+          request.transit,
+        );
+
+        const response = await fetchImpl(ROUTE_MATRIX_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": this.options.apiKey,
+            "X-Goog-FieldMask": MATRIX_FIELD_MASK,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          throw new Error(await readError(response));
+        }
+        const elements = (await response.json()) as RouteMatrixElement[];
+        return parseMatrixElements(elements, start);
+      },
+    );
+
+    const cells: TravelMatrixCell[] = chunkResults.flat();
 
     cells.sort(
       (a, b) =>
@@ -109,6 +158,7 @@ export class GoogleTravelProvider implements TravelProvider {
     destinations: LatLng[],
     travelMode: "TRANSIT" | "WALK" | "DRIVE",
     departureTime?: Date,
+    transit?: TravelMatrixRequest["transit"],
   ): Record<string, unknown> {
     const body: Record<string, unknown> = {
       origins: origins.map(toWaypoint),
@@ -122,6 +172,13 @@ export class GoogleTravelProvider implements TravelProvider {
     // "departure time in the past" errors from clock skew.
     if (departureTime && (travelMode === "TRANSIT" || travelMode === "DRIVE")) {
       body.departureTime = departureTime.toISOString();
+    }
+    // Transit preferences only make sense for transit routes.
+    if (travelMode === "TRANSIT") {
+      const transitPreferences = transitPreferencesToGoogle(transit);
+      if (transitPreferences) {
+        body.transitPreferences = transitPreferences;
+      }
     }
     return body;
   }

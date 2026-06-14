@@ -1,3 +1,4 @@
+import type { LatLng } from "@meetup/core";
 import type {
   AutocompletePrediction,
   GeocodeResult,
@@ -7,9 +8,11 @@ import type {
   TravelMatrixResult,
 } from "./types";
 
-/** Turns a free text address into coordinates. */
+/** Turns a free text address into coordinates, and coordinates back into an address. */
 export interface GeocodingProvider {
   geocode(query: string): Promise<GeocodeResult | null>;
+  /** Turns coordinates into a readable address. */
+  reverseGeocode?(location: LatLng): Promise<GeocodeResult | null>;
 }
 
 /** Suggests addresses as a user types and resolves a chosen one to coordinates. */

@@ -1,4 +1,4 @@
-import type { LatLng, TravelMode, VenueCategory } from "@meetup/core";
+import type { LatLng, TransitPreferences, TravelMode, VenueCategory } from "@meetup/core";
 
 /** A function with the same shape as the global fetch. Injected for testing. */
 export type FetchLike = typeof fetch;
@@ -37,6 +37,8 @@ export interface TravelMatrixRequest {
   mode: TravelMode;
   /** Departure time for transit and traffic aware results. Defaults to now. */
   departureTime?: Date;
+  /** Optional transit preferences, applied only when mode is transit. */
+  transit?: TransitPreferences;
 }
 
 export interface TravelMatrixCell {

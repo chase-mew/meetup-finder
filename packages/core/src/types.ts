@@ -8,7 +8,24 @@ export interface LatLng {
 export type TravelMode = "transit" | "walking" | "cycling" | "driving";
 
 /** High level venue category chosen by the user. */
-export type VenueCategory = "cafe" | "lunch" | "dinner" | "pub";
+export type VenueCategory = "cafe" | "lunch" | "dinner" | "pub" | "park";
+
+/** Public transit submodes that a transit route may use. */
+export type TransitTravelMode = "bus" | "subway" | "train" | "light_rail" | "rail";
+
+/** How a transit route should be optimised when several options exist. */
+export type TransitRoutingPreference = "less_walking" | "fewer_transfers";
+
+/** Optional preferences shaping how transit routes are computed. */
+export interface TransitPreferences {
+  /**
+   * Submodes the route is allowed to use. When omitted or empty, all submodes
+   * are allowed. Only applied when the travel mode is transit.
+   */
+  allowedModes?: TransitTravelMode[];
+  /** Prefer fewer transfers or less walking. */
+  routingPreference?: TransitRoutingPreference;
+}
 
 /**
  * Travel cost objective used to score how good a venue is for the group.

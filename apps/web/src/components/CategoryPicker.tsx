@@ -5,6 +5,7 @@ const CATEGORIES: Array<{ value: VenueCategory; label: string; hint: string }> =
   { value: "lunch", label: "Lunch", hint: "Daytime restaurants" },
   { value: "dinner", label: "Dinner", hint: "Evening restaurants" },
   { value: "pub", label: "Pub", hint: "Pubs and bars" },
+  { value: "park", label: "Park", hint: "Parks and outdoor spaces" },
 ];
 
 interface CategoryPickerProps {

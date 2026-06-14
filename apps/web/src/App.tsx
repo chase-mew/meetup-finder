@@ -1,21 +1,48 @@
-import type {
-  Objective,
-  SearchRequestBody,
-  SearchResponseBody,
-  TravelMode,
-  VenueCategory,
+import {
+  type Objective,
+  SEARCH_DEFAULTS,
+  type SearchRequestBody,
+  type SearchResponseBody,
+  type TransitPreferences,
+  type TransitTravelMode,
+  type TravelMode,
+  type VenueCategory,
 } from "@meetup/core";
 import { useMemo, useRef, useState } from "react";
-import { type AutocompletePrediction, geocode, placeDetails, search } from "./api";
-import { AdvancedControls } from "./components/AdvancedControls";
+import { type AutocompletePrediction, geocode, placeDetails, reverseGeocode, search } from "./api";
+import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
+import { LoadingResults } from "./components/LoadingResults";
 import { MapView, type MapOrigin } from "./components/MapView";
 import { ModePicker } from "./components/ModePicker";
 import { OriginsForm } from "./components/OriginsForm";
 import { ResultsList } from "./components/ResultsList";
 import type { Person } from "./types";
+import { useTheme } from "./useTheme";
 
 const MAX_PEOPLE = 10;
+
+// Allow-list of transit submodes used when the user opts to exclude buses.
+const NON_BUS_TRANSIT_MODES: TransitTravelMode[] = ["subway", "train", "light_rail", "rail"];
+
+/** Build a transit preferences object from the advanced controls, or undefined. */
+function buildTransitPreferences(
+  mode: TravelMode,
+  excludeBuses: boolean,
+  routing: TransitRoutingChoice,
+): TransitPreferences | undefined {
+  if (mode !== "transit") {
+    return undefined;
+  }
+  const preferences: TransitPreferences = {};
+  if (excludeBuses) {
+    preferences.allowedModes = NON_BUS_TRANSIT_MODES;
+  }
+  if (routing !== "any") {
+    preferences.routingPreference = routing;
+  }
+  return Object.keys(preferences).length > 0 ? preferences : undefined;
+}
 
 function newPerson(): Person {
   return {
@@ -56,14 +83,45 @@ async function resolveOne(person: Person): Promise<Person> {
   }
 }
 
+function getCurrentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      timeout: 10_000,
+      maximumAge: 60_000,
+    });
+  });
+}
+
+function geolocationMessage(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    switch ((error as GeolocationPositionError).code) {
+      case 1:
+        return "Location permission was denied. Enter your address instead.";
+      case 2:
+        return "Your location is unavailable right now. Enter your address instead.";
+      case 3:
+        return "Getting your location timed out. Try again or enter your address.";
+    }
+  }
+  return "Could not get your location. Enter your address instead.";
+}
+
+function coordLabel(lat: number, lng: number): string {
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
 export function App() {
+  const { theme, toggle: toggleTheme } = useTheme();
   const [people, setPeople] = useState<Person[]>(() => [newPerson(), newPerson()]);
   const [category, setCategory] = useState<VenueCategory>("cafe");
   const [mode, setMode] = useState<TravelMode>("transit");
-  const [objective, setObjective] = useState<Objective>("best");
-  const [ratingWeight, setRatingWeight] = useState(0.3);
-  const [limit, setLimit] = useState(5);
+  const [objective, setObjective] = useState<Objective>(SEARCH_DEFAULTS.objective);
+  const [ratingWeight, setRatingWeight] = useState<number>(SEARCH_DEFAULTS.ratingWeight);
+  const [limit, setLimit] = useState<number>(SEARCH_DEFAULTS.limit);
   const [openNow, setOpenNow] = useState(false);
+  const [excludeBuses, setExcludeBuses] = useState(false);
+  const [transitRouting, setTransitRouting] = useState<TransitRoutingChoice>("any");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -81,6 +139,59 @@ export function App() {
 
   function removePerson(id: string) {
     setPeople((prev) => (prev.length <= 2 ? prev : prev.filter((p) => p.id !== id)));
+  }
+
+  const geolocationSupported = useMemo(
+    () => typeof navigator !== "undefined" && "geolocation" in navigator,
+    [],
+  );
+
+  async function useMyLocation(id: string) {
+    if (!geolocationSupported) {
+      updatePerson(id, {
+        status: "error",
+        error: "Location is not available in this browser. Enter your address instead.",
+      });
+      return;
+    }
+
+    updatePerson(id, { status: "locating", error: undefined });
+
+    let position: GeolocationPosition;
+    try {
+      position = await getCurrentPosition();
+    } catch (geoError) {
+      updatePerson(id, { status: "error", error: geolocationMessage(geoError) });
+      return;
+    }
+
+    const { latitude, longitude } = position.coords;
+    const fallback = {
+      status: "ok" as const,
+      location: { lat: latitude, lng: longitude },
+      address: coordLabel(latitude, longitude),
+      resolvedAddress: undefined,
+      error: undefined,
+    };
+
+    try {
+      const result = await reverseGeocode(latitude, longitude);
+      if (!result) {
+        updatePerson(id, fallback);
+        return;
+      }
+      updatePerson(id, {
+        status: "ok",
+        location: result.location,
+        address: result.formattedAddress,
+        resolvedAddress: result.formattedAddress,
+        error: undefined,
+      });
+    } catch {
+      // The coordinates are still usable even if the address lookup fails,
+      // so fill them in rather than blocking the form.
+      updatePerson(id, fallback);
+    }
   }
 
   async function resolvePerson(id: string) {
@@ -173,6 +284,7 @@ export function App() {
       ratingWeight: Number(ratingWeight.toFixed(2)),
       limit,
       openNow,
+      transit: buildTransitPreferences(mode, excludeBuses, transitRouting),
     };
 
     setLoading(true);
@@ -201,6 +313,18 @@ export function App() {
             <p className="topbar__tag">Meet in the spot that is fairest for everyone.</p>
           </div>
         </div>
+        <div className="topbar__actions">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-pressed={theme === "dark"}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+          </button>
+        </div>
       </header>
 
       <main className="layout">
@@ -211,9 +335,11 @@ export function App() {
             <OriginsForm
               people={people}
               maxPeople={MAX_PEOPLE}
+              geolocationSupported={geolocationSupported}
               onUpdate={updatePerson}
               onResolve={resolvePerson}
               onSelectPlace={selectPlace}
+              onUseMyLocation={useMyLocation}
               onRemove={removePerson}
               onAdd={addPerson}
             />
@@ -248,6 +374,11 @@ export function App() {
                 onLimit={setLimit}
                 openNow={openNow}
                 onOpenNow={setOpenNow}
+                showTransit={mode === "transit"}
+                excludeBuses={excludeBuses}
+                onExcludeBuses={setExcludeBuses}
+                transitRouting={transitRouting}
+                onTransitRouting={setTransitRouting}
               />
             ) : null}
           </section>
@@ -275,7 +406,7 @@ export function App() {
           ) : null}
 
           {loading ? (
-            <div className="state state--loading">Calculating travel times…</div>
+            <LoadingResults />
           ) : result ? (
             <ResultsList result={result} selectedId={selectedId} onSelect={setSelectedId} />
           ) : (
