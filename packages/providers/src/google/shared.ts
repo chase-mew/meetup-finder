@@ -15,17 +15,47 @@ export function resolveFetch(options: GoogleProviderOptions): FetchLike {
   return impl;
 }
 
-/** Map a user facing category onto Places API (New) included types. */
-export function categoryToIncludedTypes(category: VenueCategory): string[] {
+/** Map a user facing category onto a Text Search query string. */
+export function categoryToTextQuery(category: VenueCategory): string {
   switch (category) {
     case "cafe":
-      return ["cafe", "coffee_shop"];
+      return "cafe";
     case "lunch":
-      return ["restaurant"];
+      return "lunch restaurant";
     case "dinner":
-      return ["restaurant"];
+      return "dinner restaurant";
     case "pub":
-      return ["pub", "bar"];
+      return "pub";
+    default: {
+      const exhaustive: never = category;
+      throw new Error(`Unknown category: ${String(exhaustive)}`);
+    }
+  }
+}
+
+const CAFE_PRIMARY_TYPES = new Set(["cafe", "coffee_shop", "tea_house"]);
+const PUB_PRIMARY_TYPES = new Set(["bar", "pub", "wine_bar", "bar_and_grill"]);
+
+/**
+ * Decide whether a place belongs to the chosen category based on its primary
+ * type. Filtering on the primary type (rather than any of a place's types) is
+ * what keeps hotels and cinemas that merely contain a bar out of a pub search.
+ */
+export function matchesCategoryPrimaryType(
+  category: VenueCategory,
+  primaryType: string | undefined,
+): boolean {
+  if (!primaryType) {
+    return false;
+  }
+  switch (category) {
+    case "cafe":
+      return CAFE_PRIMARY_TYPES.has(primaryType);
+    case "lunch":
+    case "dinner":
+      return primaryType === "restaurant" || primaryType.endsWith("_restaurant");
+    case "pub":
+      return PUB_PRIMARY_TYPES.has(primaryType);
     default: {
       const exhaustive: never = category;
       throw new Error(`Unknown category: ${String(exhaustive)}`);
