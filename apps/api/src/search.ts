@@ -1,9 +1,9 @@
 import {
   type LatLng,
-  type Objective,
   type Origin,
   type ResultLeg,
   type ResultVenue,
+  SEARCH_DEFAULTS,
   type SearchRequestBody,
   type SearchResponseBody,
   bayesianRating,
@@ -34,15 +34,11 @@ export interface SearchConfig {
 
 export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   candidateLimit: 24,
-  defaultLimit: 8,
+  defaultLimit: SEARCH_DEFAULTS.limit,
   searchPages: 2,
   areaRadiusMeters: 1_300,
   area: DEFAULT_AREA_CONFIG,
 };
-
-const DEFAULT_OBJECTIVE: Objective = "best";
-const DEFAULT_TRAVEL_WEIGHT = 0.7;
-const DEFAULT_RATING_WEIGHT = 0.3;
 
 /** Derive a venue search radius from how spread out the group is. */
 export function deriveSearchRadius(
@@ -125,7 +121,7 @@ export async function runSearch(
     throw new Error("At least one origin is required");
   }
 
-  const objective = body.objective ?? DEFAULT_OBJECTIVE;
+  const objective = body.objective ?? SEARCH_DEFAULTS.objective;
   const median = weightedGeometricMedian(
     origins.map((o) => o.location),
     origins.map((o) => o.weight ?? 1),
@@ -202,8 +198,8 @@ export async function runSearch(
     {
       objective,
       weights: {
-        travel: body.travelWeight ?? DEFAULT_TRAVEL_WEIGHT,
-        rating: body.ratingWeight ?? DEFAULT_RATING_WEIGHT,
+        travel: body.travelWeight ?? SEARCH_DEFAULTS.travelWeight,
+        rating: body.ratingWeight ?? SEARCH_DEFAULTS.ratingWeight,
       },
     },
   );

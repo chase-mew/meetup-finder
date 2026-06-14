@@ -1,9 +1,10 @@
-import type {
-  Objective,
-  SearchRequestBody,
-  SearchResponseBody,
-  TravelMode,
-  VenueCategory,
+import {
+  type Objective,
+  SEARCH_DEFAULTS,
+  type SearchRequestBody,
+  type SearchResponseBody,
+  type TravelMode,
+  type VenueCategory,
 } from "@meetup/core";
 import { useMemo, useState } from "react";
 import { geocode, search } from "./api";
@@ -60,9 +61,9 @@ export function App() {
   const [people, setPeople] = useState<Person[]>(() => [newPerson(), newPerson()]);
   const [category, setCategory] = useState<VenueCategory>("cafe");
   const [mode, setMode] = useState<TravelMode>("transit");
-  const [objective, setObjective] = useState<Objective>("best");
-  const [ratingWeight, setRatingWeight] = useState(0.3);
-  const [limit, setLimit] = useState(5);
+  const [objective, setObjective] = useState<Objective>(SEARCH_DEFAULTS.objective);
+  const [ratingWeight, setRatingWeight] = useState<number>(SEARCH_DEFAULTS.ratingWeight);
+  const [limit, setLimit] = useState<number>(SEARCH_DEFAULTS.limit);
   const [openNow, setOpenNow] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
