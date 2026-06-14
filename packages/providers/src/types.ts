@@ -1,4 +1,4 @@
-import type { LatLng, TravelMode, VenueCategory } from "@meetup/core";
+import type { LatLng, RegularOpeningHours, TravelMode, VenueCategory } from "@meetup/core";
 
 /** A function with the same shape as the global fetch. Injected for testing. */
 export type FetchLike = typeof fetch;
@@ -18,6 +18,14 @@ export interface Place {
   googleMapsUri?: string;
   websiteUri?: string;
   openNow?: boolean;
+  /** Whether the venue serves breakfast, when known. */
+  servesBreakfast?: boolean;
+  /** Whether the venue serves lunch, when known. */
+  servesLunch?: boolean;
+  /** Whether the venue serves dinner, when known. */
+  servesDinner?: boolean;
+  /** Weekly opening hours, used to judge whether a venue is open at meet time. */
+  regularOpeningHours?: RegularOpeningHours;
   /** Provider photo reference, used to lazily fetch an image. */
   photoRef?: string;
 }

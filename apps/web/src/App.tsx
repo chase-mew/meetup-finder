@@ -64,6 +64,7 @@ export function App() {
   const [ratingWeight, setRatingWeight] = useState(0.3);
   const [limit, setLimit] = useState(5);
   const [openNow, setOpenNow] = useState(false);
+  const [meetTime, setMeetTime] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -133,6 +134,7 @@ export function App() {
       return;
     }
 
+    const usesMeetTime = category === "lunch" || category === "dinner";
     const body: SearchRequestBody = {
       origins,
       category,
@@ -142,6 +144,7 @@ export function App() {
       ratingWeight: Number(ratingWeight.toFixed(2)),
       limit,
       openNow,
+      meetTime: usesMeetTime && meetTime ? meetTime : undefined,
     };
 
     setLoading(true);
@@ -216,6 +219,9 @@ export function App() {
                 onLimit={setLimit}
                 openNow={openNow}
                 onOpenNow={setOpenNow}
+                category={category}
+                meetTime={meetTime}
+                onMeetTime={setMeetTime}
               />
             ) : null}
           </section>

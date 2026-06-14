@@ -99,6 +99,7 @@ export function buildSearchCacheKey(body: SearchRequestBody): string {
     l: body.limit ?? 5,
     on: body.openNow ?? false,
     r: body.searchRadiusMeters ?? null,
+    mt: body.meetTime ?? null,
   };
   return `search:v1:${JSON.stringify(shape)}`;
 }

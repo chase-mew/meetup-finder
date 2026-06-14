@@ -36,6 +36,26 @@ export {
 
 export { scoreVenues } from "./scoring";
 
+export {
+  DEFAULT_MEAL_MINUTES,
+  SERVE_PENALTY,
+  CLOSED_PENALTY,
+  mealServiceForCategory,
+  parseTimeOfDay,
+  resolveMealTarget,
+  isOpenAt,
+  evaluateMealFit,
+} from "./hours";
+export type {
+  OpeningHoursPoint,
+  OpeningPeriod,
+  RegularOpeningHours,
+  WeekTime,
+  MealService,
+  MealFit,
+  MealFitInput,
+} from "./hours";
+
 export type {
   SearchRequestBody,
   SearchResponseBody,

@@ -1,9 +1,10 @@
-import type {
-  Objective,
-  Origin,
-  SearchRequestBody,
-  TravelMode,
-  VenueCategory,
+import {
+  type Objective,
+  type Origin,
+  type SearchRequestBody,
+  type TravelMode,
+  type VenueCategory,
+  parseTimeOfDay,
 } from "@meetup/core";
 
 export type ValidationResult =
@@ -135,6 +136,14 @@ export function validateSearchRequest(input: unknown): ValidationResult {
 
   const openNow = input.openNow === undefined ? undefined : input.openNow === true;
 
+  let meetTime: string | undefined;
+  if (input.meetTime !== undefined) {
+    if (typeof input.meetTime !== "string" || parseTimeOfDay(input.meetTime) === undefined) {
+      return { ok: false, error: 'meetTime must be a 24 hour time like "12:30"' };
+    }
+    meetTime = input.meetTime.trim();
+  }
+
   return {
     ok: true,
     value: {
@@ -147,6 +156,7 @@ export function validateSearchRequest(input: unknown): ValidationResult {
       limit,
       openNow,
       searchRadiusMeters,
+      meetTime,
     },
   };
 }
