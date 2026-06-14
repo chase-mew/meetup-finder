@@ -2,6 +2,7 @@ import type { Objective, SearchResponseBody, TravelMode } from "@meetup/core";
 import { VenueCard } from "./VenueCard";
 
 const OBJECTIVE_LABELS: Record<Objective, string> = {
+  best: "best overall",
   min_max: "fairest",
   min_total: "most efficient",
   min_variance: "most even",

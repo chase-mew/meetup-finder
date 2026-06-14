@@ -1,4 +1,4 @@
-import type { Objective } from "./types";
+import type { BaseObjective } from "./types";
 
 /** Sum of all travel times. */
 export function totalSeconds(durations: number[]): number {
@@ -47,7 +47,7 @@ export function varianceSeconds(durations: number[]): number {
  * Lower is always better. The variance objective uses the standard
  * deviation so the cost stays in seconds and is comparable in scale.
  */
-export function objectiveCost(objective: Objective, durations: number[]): number {
+export function objectiveCost(objective: BaseObjective, durations: number[]): number {
   switch (objective) {
     case "min_total":
       return totalSeconds(durations);

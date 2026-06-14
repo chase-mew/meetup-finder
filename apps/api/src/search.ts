@@ -32,7 +32,7 @@ export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   searchPages: 3,
 };
 
-const DEFAULT_OBJECTIVE: Objective = "min_max";
+const DEFAULT_OBJECTIVE: Objective = "best";
 const DEFAULT_TRAVEL_WEIGHT = 0.7;
 const DEFAULT_RATING_WEIGHT = 0.3;
 

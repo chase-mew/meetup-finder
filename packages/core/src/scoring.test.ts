@@ -67,6 +67,43 @@ describe("scoreVenues", () => {
     expect(scored!.finalScore).toBeGreaterThanOrEqual(0);
   });
 
+  it("best objective prefers a venue strong on all three measures", () => {
+    const candidates: ScoringCandidate[] = [
+      { id: "allround", rating: 4.5, ratingCount: 500, durationsSeconds: [600, 600] },
+      { id: "unfair", rating: 4.5, ratingCount: 500, durationsSeconds: [200, 3000] },
+      { id: "slow", rating: 4.5, ratingCount: 500, durationsSeconds: [1500, 1500] },
+    ];
+    const ranked = scoreVenues(candidates, { objective: "best" });
+    expect(ranked[0]!.id).toBe("allround");
+  });
+
+  it("best objective reports the worst trip as the headline cost", () => {
+    const candidates: ScoringCandidate[] = [
+      { id: "a", rating: 4, ratingCount: 100, durationsSeconds: [600, 1200] },
+    ];
+    const [scored] = scoreVenues(candidates, { objective: "best" });
+    expect(scored!.objectiveCostSeconds).toBe(scored!.maxSeconds);
+  });
+
+  it("best objective falls back to rating when travel is identical", () => {
+    const candidates: ScoringCandidate[] = [
+      { id: "low", rating: 3.2, ratingCount: 800, durationsSeconds: [600, 600] },
+      { id: "high", rating: 4.8, ratingCount: 800, durationsSeconds: [600, 600] },
+    ];
+    const ranked = scoreVenues(candidates, { objective: "best" });
+    expect(ranked[0]!.id).toBe("high");
+  });
+
+  it("best objective still ranks unreachable venues last", () => {
+    const candidates: ScoringCandidate[] = [
+      { id: "ok", rating: 3.5, ratingCount: 50, durationsSeconds: [2400, 2400] },
+      { id: "no", rating: 5, ratingCount: 9000, durationsSeconds: [600, null] },
+    ];
+    const ranked = scoreVenues(candidates, { objective: "best" });
+    expect(ranked[0]!.id).toBe("ok");
+    expect(ranked.find((r) => r.id === "no")!.reachable).toBe(false);
+  });
+
   it("returns results sorted ascending by final score", () => {
     const candidates: ScoringCandidate[] = [
       { id: "a", rating: 4, ratingCount: 100, durationsSeconds: [600, 600] },

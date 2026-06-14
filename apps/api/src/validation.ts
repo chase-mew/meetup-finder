@@ -13,7 +13,7 @@ export type ValidationResult =
 const CATEGORIES: VenueCategory[] = ["cafe", "lunch", "dinner", "pub"];
 // Cycling is intentionally excluded: the Routes matrix endpoint cannot do it.
 const MODES: TravelMode[] = ["transit", "walking", "driving"];
-const OBJECTIVES: Objective[] = ["min_total", "min_max", "min_variance"];
+const OBJECTIVES: Objective[] = ["best", "min_total", "min_max", "min_variance"];
 
 const MAX_ORIGINS = 10;
 
