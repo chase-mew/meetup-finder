@@ -171,6 +171,7 @@ function OriginRow({
               autoComplete="off"
               onChange={(event) => {
                 lastFetched.current = null;
+                skipNextResolve.current = false;
                 setOpen(true);
                 onUpdate(person.id, { address: event.target.value, status: "idle" });
               }}

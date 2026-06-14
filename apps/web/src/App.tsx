@@ -5,7 +5,7 @@ import type {
   TravelMode,
   VenueCategory,
 } from "@meetup/core";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type AutocompletePrediction, geocode, placeDetails, search } from "./api";
 import { AdvancedControls } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
@@ -96,10 +96,18 @@ export function App() {
     setPeople((prev) => prev.map((p) => (p.id === id ? resolved : p)));
   }
 
+  // Tracks the latest selection per person so out of order resolutions are dropped.
+  const selectPlaceSeq = useRef<Map<string, number>>(new Map());
+
   async function selectPlace(id: string, prediction: AutocompletePrediction) {
+    const seq = (selectPlaceSeq.current.get(id) ?? 0) + 1;
+    selectPlaceSeq.current.set(id, seq);
     updatePerson(id, { address: prediction.description, status: "loading", error: undefined });
     try {
       const result = await placeDetails(prediction.placeId);
+      if (selectPlaceSeq.current.get(id) !== seq) {
+        return;
+      }
       if (!result) {
         updatePerson(id, { status: "error", error: "No match found", location: undefined });
         return;
@@ -111,6 +119,9 @@ export function App() {
         error: undefined,
       });
     } catch (error) {
+      if (selectPlaceSeq.current.get(id) !== seq) {
+        return;
+      }
       const message = error instanceof Error ? error.message : "Lookup failed";
       updatePerson(id, { status: "error", error: message, location: undefined });
     }
