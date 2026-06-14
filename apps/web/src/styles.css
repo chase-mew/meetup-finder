@@ -18,9 +18,9 @@
      UI: the native system stack, used deliberately. It renders instantly with
      no layout shift and feels at home on every platform, so we spend our one
      web font on character where it counts rather than on body text. */
-  --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
-    "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  --font-display: "Fraunces Variable", "Georgia", "Times New Roman", serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica",
+    "Arial", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
 
   /* Modular type scale, ~1.2 (minor third) on a 16px base. Each step pairs a
      size with a line height tuned for that size. */
@@ -226,7 +226,6 @@ body {
   color: var(--ink);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
   transition: background var(--motion), color var(--motion);
 }
 
