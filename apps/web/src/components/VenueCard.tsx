@@ -120,7 +120,7 @@ export function VenueCard({
               rel="noreferrer"
               onClick={(event) => event.stopPropagation()}
             >
-              Directions
+              Open in Maps
             </a>
           ) : null}
           {venue.websiteUri ? (
