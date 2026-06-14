@@ -13,3 +13,17 @@ compatibility_date = "2024-11-06"
 # [[kv_namespaces]]
 # binding = "CACHE"
 # id = "your-kv-namespace-id"
+
+# Rate limiting and abuse protection. The paid endpoints (/api/search and
+# /api/geocode) are throttled per client, keyed by cf-connecting-ip, using a
+# token bucket. State is stored in the CACHE KV namespace when bound, otherwise
+# in an in memory store scoped to a single isolate. All values are optional.
+[vars]
+# Set to "false" to disable throttling entirely.
+RATE_LIMIT_ENABLED = "true"
+# Sustained requests per minute per client.
+RATE_LIMIT_RPM = "30"
+# Bucket capacity, i.e. the largest burst a client can make at once.
+RATE_LIMIT_BURST = "15"
+# Optional global daily request ceiling across all clients (0 disables it).
+RATE_LIMIT_DAILY_MAX = "0"
