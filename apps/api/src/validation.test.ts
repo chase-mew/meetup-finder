@@ -85,4 +85,46 @@ describe("validateSearchRequest", () => {
       expect(result.value.openNow).toBe(true);
     }
   });
+
+  it("carries through valid transit preferences", () => {
+    const result = validateSearchRequest({
+      ...validBody,
+      transit: {
+        allowedModes: ["subway", "train", "rail", "subway"],
+        routingPreference: "fewer_transfers",
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.transit).toEqual({
+        // Duplicates are de-duplicated, order preserved.
+        allowedModes: ["subway", "train", "rail"],
+        routingPreference: "fewer_transfers",
+      });
+    }
+  });
+
+  it("leaves transit undefined when not provided", () => {
+    const result = validateSearchRequest(validBody);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.transit).toBeUndefined();
+    }
+  });
+
+  it("rejects an unknown transit submode", () => {
+    expect(
+      validateSearchRequest({ ...validBody, transit: { allowedModes: ["helicopter"] } }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects an unknown transit routing preference", () => {
+    expect(
+      validateSearchRequest({ ...validBody, transit: { routingPreference: "teleport" } }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects a non object transit value", () => {
+    expect(validateSearchRequest({ ...validBody, transit: "rail" }).ok).toBe(false);
+  });
 });

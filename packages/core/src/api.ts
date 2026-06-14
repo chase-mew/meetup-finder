@@ -1,4 +1,11 @@
-import type { LatLng, Objective, Origin, TravelMode, VenueCategory } from "./types";
+import type {
+  LatLng,
+  Objective,
+  Origin,
+  TransitPreferences,
+  TravelMode,
+  VenueCategory,
+} from "./types";
 
 /** Body of a POST /api/search request. */
 export interface SearchRequestBody {
@@ -17,6 +24,8 @@ export interface SearchRequestBody {
   openNow?: boolean;
   /** Optional override for the venue search radius in metres. */
   searchRadiusMeters?: number;
+  /** Optional transit preferences, applied only when mode is transit. */
+  transit?: TransitPreferences;
 }
 
 /** Travel detail for one person to one venue. */

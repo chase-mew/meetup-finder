@@ -3,6 +3,7 @@ import {
   categoryToTextQuery,
   matchesCategoryPrimaryType,
   parseDurationSeconds,
+  transitPreferencesToGoogle,
   travelModeToGoogle,
 } from "./shared";
 
@@ -62,6 +63,46 @@ describe("travelModeToGoogle", () => {
 
   it("rejects cycling, which the matrix endpoint cannot do", () => {
     expect(() => travelModeToGoogle("cycling")).toThrow();
+  });
+});
+
+describe("transitPreferencesToGoogle", () => {
+  it("returns undefined when no preferences are given", () => {
+    expect(transitPreferencesToGoogle(undefined)).toBeUndefined();
+    expect(transitPreferencesToGoogle({})).toBeUndefined();
+  });
+
+  it("maps allowed submodes to the Routes API enum", () => {
+    expect(
+      transitPreferencesToGoogle({ allowedModes: ["subway", "train", "light_rail", "rail"] }),
+    ).toEqual({
+      allowedTravelModes: ["SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"],
+    });
+  });
+
+  it("maps the routing preference", () => {
+    expect(transitPreferencesToGoogle({ routingPreference: "fewer_transfers" })).toEqual({
+      routingPreference: "FEWER_TRANSFERS",
+    });
+    expect(transitPreferencesToGoogle({ routingPreference: "less_walking" })).toEqual({
+      routingPreference: "LESS_WALKING",
+    });
+  });
+
+  it("combines submodes and routing preference", () => {
+    expect(
+      transitPreferencesToGoogle({
+        allowedModes: ["bus"],
+        routingPreference: "less_walking",
+      }),
+    ).toEqual({
+      allowedTravelModes: ["BUS"],
+      routingPreference: "LESS_WALKING",
+    });
+  });
+
+  it("ignores an empty allowed submodes list", () => {
+    expect(transitPreferencesToGoogle({ allowedModes: [] })).toBeUndefined();
   });
 });
 

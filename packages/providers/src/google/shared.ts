@@ -1,4 +1,10 @@
-import type { TravelMode, VenueCategory } from "@meetup/core";
+import type {
+  TransitPreferences,
+  TransitRoutingPreference,
+  TransitTravelMode,
+  TravelMode,
+  VenueCategory,
+} from "@meetup/core";
 import type { FetchLike } from "../types";
 
 export interface GoogleProviderOptions {
@@ -95,6 +101,43 @@ export function travelModeToGoogle(mode: TravelMode): "TRANSIT" | "WALK" | "DRIV
       throw new Error(`Unknown travel mode: ${String(exhaustive)}`);
     }
   }
+}
+
+const TRANSIT_MODE_TO_GOOGLE: Record<TransitTravelMode, string> = {
+  bus: "BUS",
+  subway: "SUBWAY",
+  train: "TRAIN",
+  light_rail: "LIGHT_RAIL",
+  rail: "RAIL",
+};
+
+const TRANSIT_ROUTING_TO_GOOGLE: Record<TransitRoutingPreference, string> = {
+  less_walking: "LESS_WALKING",
+  fewer_transfers: "FEWER_TRANSFERS",
+};
+
+/**
+ * Map our transit preferences onto a Routes API `transitPreferences` object.
+ * Returns undefined when there is nothing meaningful to send, so callers can
+ * omit the field entirely.
+ */
+export function transitPreferencesToGoogle(
+  preferences: TransitPreferences | undefined,
+): Record<string, unknown> | undefined {
+  if (!preferences) {
+    return undefined;
+  }
+  const result: Record<string, unknown> = {};
+  const allowed = preferences.allowedModes
+    ?.filter((mode): mode is TransitTravelMode => mode in TRANSIT_MODE_TO_GOOGLE)
+    .map((mode) => TRANSIT_MODE_TO_GOOGLE[mode]);
+  if (allowed && allowed.length > 0) {
+    result.allowedTravelModes = allowed;
+  }
+  if (preferences.routingPreference) {
+    result.routingPreference = TRANSIT_ROUTING_TO_GOOGLE[preferences.routingPreference];
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 /**
