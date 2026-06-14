@@ -1,4 +1,10 @@
-import type { Objective, ResultVenue, ScoreWeights } from "@meetup/core";
+import type {
+  Objective,
+  ResultVenue,
+  ScoreWeights,
+  SearchResponseBody,
+  TravelMode,
+} from "@meetup/core";
 import { formatDuration } from "./format";
 
 /** A plain language, honest explanation of why a venue ranks where it does. */
@@ -26,6 +32,47 @@ const OBJECTIVE_HEADLINE: Record<Objective, string> = {
   min_total: "Lowest combined travel for the group",
   min_variance: "Most even trips for the group",
 };
+
+const MODE_TRAVEL_PHRASE: Record<TravelMode, string> = {
+  transit: "public transport",
+  walking: "walking",
+  cycling: "cycling",
+  driving: "driving",
+};
+
+/** A short, honest summary of why the results sit where they do. */
+export interface ResultsGeographyExplanation {
+  /** One short line capturing the overall idea. */
+  headline: string;
+  /** A plain language sentence answering "why not somewhere more central?". */
+  detail: string;
+}
+
+/**
+ * Explain the geography of a result set: why the spots sit where they do and
+ * why a more central area was not chosen. This answers the common "surely
+ * there are more central options?" reaction by being explicit that the ranking
+ * optimises fair travel for the whole group, where a more central spot would
+ * mean a longer trip for at least one person.
+ *
+ * Returns null when there are no venues to explain.
+ */
+export function explainResultsGeography(
+  result: Pick<SearchResponseBody, "objective" | "mode" | "origins" | "venues">,
+): ResultsGeographyExplanation | null {
+  if (result.venues.length === 0) {
+    return null;
+  }
+  const mode = MODE_TRAVEL_PHRASE[result.mode];
+  const people = result.origins.length;
+  return {
+    headline: "Chosen for fair travel, not the centre of the map",
+    detail:
+      `These spots are picked for ${OBJECTIVE_TRAVEL_PHRASE[result.objective]} by ${mode} ` +
+      `for all ${people} of you, not for being central. A more central area was skipped ` +
+      "because it would mean a longer trip for at least one person.",
+  };
+}
 
 // Below this normalized travel cost a venue is among the very best on travel, so
 // the headline leads with the objective rather than the trade off.

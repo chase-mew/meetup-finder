@@ -1,7 +1,14 @@
 import { haversineMeters, type RegularOpeningHours, type SearchRequestBody } from "@meetup/core";
 import type { Place, PlacesProvider, TravelMatrixRequest, TravelProvider } from "@meetup/providers";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_SEARCH_CONFIG, deriveSearchRadius, mealFitEvaluator, runSearch } from "./search";
+import {
+  DEFAULT_SEARCH_CONFIG,
+  deriveSearchRadius,
+  mealFitEvaluator,
+  preselectCandidates,
+  runSearch,
+  spaceOutByLocation,
+} from "./search";
 
 const ORIGINS: SearchRequestBody["origins"] = [
   { id: "a", label: "Alice", location: { lat: 51.5308, lng: -0.1238 } }, // King's Cross
@@ -57,6 +64,71 @@ describe("deriveSearchRadius", () => {
     const radius = deriveSearchRadius({ lat: 51.51, lng: -0.12 }, ORIGINS);
     expect(radius).toBeGreaterThanOrEqual(1_200);
     expect(radius).toBeLessThanOrEqual(6_000);
+  });
+});
+
+describe("spaceOutByLocation", () => {
+  const at = (id: string, lat: number, lng: number) => ({ id, location: { lat, lng } });
+  const loc = (item: { location: { lat: number; lng: number } }) => item.location;
+
+  it("drops a near-duplicate when varied alternatives of lower rank exist", () => {
+    // Two items on the same spot, then a clearly separate one.
+    const ranked = [
+      at("a", 51.515, -0.118),
+      at("a-twin", 51.5151, -0.118),
+      at("b", 51.52, -0.13),
+    ];
+    const result = spaceOutByLocation(ranked, loc, 2, 250);
+    expect(result.map((r) => r.id)).toEqual(["a", "b"]);
+  });
+
+  it("backfills with held-back items rather than returning fewer", () => {
+    // Every item is within the separation, so spacing alone yields one; the
+    // limit is still honoured by backfilling in rank order.
+    const ranked = [
+      at("a", 51.515, -0.118),
+      at("a2", 51.5151, -0.118),
+      at("a3", 51.5152, -0.118),
+    ];
+    const result = spaceOutByLocation(ranked, loc, 3, 250);
+    expect(result.map((r) => r.id)).toEqual(["a", "a2", "a3"]);
+  });
+
+  it("preserves rank order when every item is already far apart", () => {
+    const ranked = [
+      at("a", 51.51, -0.12),
+      at("b", 51.52, -0.13),
+      at("c", 51.5, -0.1),
+    ];
+    const result = spaceOutByLocation(ranked, loc, 3, 250);
+    expect(result.map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("applies no spacing when the separation is zero", () => {
+    const ranked = [at("a", 51.515, -0.118), at("a2", 51.5151, -0.118)];
+    const result = spaceOutByLocation(ranked, loc, 2, 0);
+    expect(result.map((r) => r.id)).toEqual(["a", "a2"]);
+  });
+});
+
+describe("preselectCandidates", () => {
+  it("draws fairly across areas so one dense cluster cannot dominate", () => {
+    const near = { lat: 51.51, lng: -0.12 };
+    const far = { lat: 51.6, lng: 0.05 };
+    // Ten strong venues around the first area, two weaker ones around the second.
+    const dense = Array.from({ length: 10 }, (_, i) =>
+      makePlace(`dense-${i}`, 51.51 + i * 0.0002, -0.12, 4.8, 1000),
+    );
+    const sparse = [
+      makePlace("sparse-0", 51.6, 0.05, 4.0, 50),
+      makePlace("sparse-1", 51.6005, 0.05, 4.0, 50),
+    ];
+    const selected = preselectCandidates([near, far], [...dense, ...sparse], 4);
+    const ids = selected.map((p) => p.id);
+    // The sparse area still earns slots despite weaker ratings.
+    expect(ids).toContain("sparse-0");
+    expect(ids).toContain("sparse-1");
+    expect(selected).toHaveLength(4);
   });
 });
 
@@ -118,6 +190,33 @@ describe("runSearch", () => {
     expect(calls.length).toBeGreaterThanOrEqual(2);
     const venueMatrix = calls.at(-1)![0] as TravelMatrixRequest;
     expect(venueMatrix.destinations.length).toBe(3);
+  });
+
+  it("spreads results out rather than returning a single tight cluster", async () => {
+    // Four near-identical venues on one spot, plus three well-separated ones.
+    const cluster = Array.from({ length: 4 }, (_, i) =>
+      makePlace(`cluster-${i}`, 51.515 + i * 0.0001, -0.118, 4.6, 800),
+    );
+    const spread = [
+      makePlace("spread-a", 51.512, -0.125, 4.5, 700),
+      makePlace("spread-b", 51.518, -0.11, 4.5, 700),
+      makePlace("spread-c", 51.508, -0.13, 4.5, 700),
+    ];
+    const result = await runSearch(
+      { places: fakePlaces([...cluster, ...spread]), travel: fakeTravel() },
+      { ...baseBody, limit: 3 },
+    );
+
+    // No two returned venues sit within the default spacing of each other.
+    for (let i = 0; i < result.venues.length; i += 1) {
+      for (let j = i + 1; j < result.venues.length; j += 1) {
+        const gap = haversineMeters(result.venues[i]!.location, result.venues[j]!.location);
+        expect(gap).toBeGreaterThanOrEqual(DEFAULT_SEARCH_CONFIG.minVenueSeparationMeters);
+      }
+    }
+    // At most one venue from the tight cluster survives the spacing rule.
+    const clusterCount = result.venues.filter((v) => v.id.startsWith("cluster-")).length;
+    expect(clusterCount).toBeLessThanOrEqual(1);
   });
 
   it("respects the result limit", async () => {
