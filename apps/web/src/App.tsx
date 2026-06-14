@@ -185,6 +185,20 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
 
+  // Tracks the latest async mutation per person so out of order results (blur
+  // geocode, place details, reverse geocode) never overwrite a newer update.
+  const personSeq = useRef<Map<string, number>>(new Map());
+
+  function nextSeq(id: string): number {
+    const seq = (personSeq.current.get(id) ?? 0) + 1;
+    personSeq.current.set(id, seq);
+    return seq;
+  }
+
+  function isCurrentSeq(id: string, seq: number): boolean {
+    return personSeq.current.get(id) === seq;
+  }
+
   function updatePerson(id: string, patch: Partial<Person>) {
     setPeople((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }
@@ -216,6 +230,8 @@ export function App() {
   }
 
   function insertFavourite(id: string, favourite: Favourite) {
+    // Supersede any in-flight resolve so a late result cannot overwrite this.
+    nextSeq(id);
     updatePerson(id, {
       label: favourite.label,
       address: favourite.address || favourite.resolvedAddress || formatCoords(favourite.location),
@@ -240,13 +256,20 @@ export function App() {
       return;
     }
 
+    const seq = nextSeq(id);
     updatePerson(id, { status: "locating", error: undefined });
 
     let position: GeolocationPosition;
     try {
       position = await getCurrentPosition();
     } catch (geoError) {
+      if (!isCurrentSeq(id, seq)) {
+        return;
+      }
       updatePerson(id, { status: "error", error: geolocationMessage(geoError) });
+      return;
+    }
+    if (!isCurrentSeq(id, seq)) {
       return;
     }
 
@@ -261,6 +284,9 @@ export function App() {
 
     try {
       const result = await reverseGeocode(latitude, longitude);
+      if (!isCurrentSeq(id, seq)) {
+        return;
+      }
       if (!result) {
         updatePerson(id, fallback);
         return;
@@ -273,6 +299,9 @@ export function App() {
         error: undefined,
       });
     } catch {
+      if (!isCurrentSeq(id, seq)) {
+        return;
+      }
       // The coordinates are still usable even if the address lookup fails,
       // so fill them in rather than blocking the form.
       updatePerson(id, fallback);
@@ -287,21 +316,21 @@ export function App() {
       }
       return;
     }
+    const seq = nextSeq(id);
     updatePerson(id, { status: "loading" });
     const resolved = await resolveOne(person);
+    if (!isCurrentSeq(id, seq)) {
+      return;
+    }
     setPeople((prev) => prev.map((p) => (p.id === id ? resolved : p)));
   }
 
-  // Tracks the latest selection per person so out of order resolutions are dropped.
-  const selectPlaceSeq = useRef<Map<string, number>>(new Map());
-
   async function selectPlace(id: string, prediction: AutocompletePrediction) {
-    const seq = (selectPlaceSeq.current.get(id) ?? 0) + 1;
-    selectPlaceSeq.current.set(id, seq);
+    const seq = nextSeq(id);
     updatePerson(id, { address: prediction.description, status: "loading", error: undefined });
     try {
       const result = await placeDetails(prediction.placeId);
-      if (selectPlaceSeq.current.get(id) !== seq) {
+      if (!isCurrentSeq(id, seq)) {
         return;
       }
       if (!result) {
@@ -315,7 +344,7 @@ export function App() {
         error: undefined,
       });
     } catch (error) {
-      if (selectPlaceSeq.current.get(id) !== seq) {
+      if (!isCurrentSeq(id, seq)) {
         return;
       }
       const message = error instanceof Error ? error.message : "Lookup failed";
