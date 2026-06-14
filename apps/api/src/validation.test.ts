@@ -168,10 +168,12 @@ describe("validateSearchRequest", () => {
     expect(validateSearchRequest({ ...validBody, priceLevels: "cheap" }).ok).toBe(false);
   });
 
-  it("rejects a minimum rating outside 0..5", () => {
+  it("rejects a minimum rating outside 0..5 or off the 0.5 cadence", () => {
     expect(validateSearchRequest({ ...validBody, minRating: -1 }).ok).toBe(false);
     expect(validateSearchRequest({ ...validBody, minRating: 6 }).ok).toBe(false);
     expect(validateSearchRequest({ ...validBody, minRating: "good" }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, minRating: 3.7 }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, minRating: 4.5 }).ok).toBe(true);
   });
 
   it("rejects too many or overlong cuisines", () => {

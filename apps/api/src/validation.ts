@@ -146,8 +146,10 @@ function parseMinRating(raw: unknown): number | string | undefined {
   if (raw === undefined) {
     return undefined;
   }
-  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || raw > 5) {
-    return "minRating must be a number between 0 and 5";
+  // The Places API only accepts ratings on a 0.5 cadence, so reject anything
+  // off-step here rather than silently letting the provider round it.
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || raw > 5 || raw % 0.5 !== 0) {
+    return "minRating must be a number between 0 and 5 in 0.5 increments";
   }
   return raw;
 }

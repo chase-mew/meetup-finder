@@ -92,7 +92,7 @@ export function encodeSearchState(state: SearchUrlState): string {
   params.set("xbus", state.excludeBuses ? "1" : "0");
   params.set("troute", state.transitRouting);
   if (state.priceLevels.length > 0) {
-    params.set("price", [...state.priceLevels].sort().join(","));
+    params.set("price", [...state.priceLevels].sort((a, b) => a - b).join(","));
   }
   if (state.minRating > 0) {
     params.set("rating", String(state.minRating));
@@ -234,7 +234,7 @@ function parsePriceLevels(raw: string | null): number[] {
       levels.push(value);
     }
   }
-  return levels.sort();
+  return levels.sort((a, b) => a - b);
 }
 
 function parseRating(raw: string | null): number {
