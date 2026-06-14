@@ -6,7 +6,7 @@ import type {
   VenueCategory,
 } from "@meetup/core";
 import { useMemo, useState } from "react";
-import { geocode, search } from "./api";
+import { type AutocompletePrediction, geocode, placeDetails, search } from "./api";
 import { AdvancedControls } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
 import { MapView, type MapOrigin } from "./components/MapView";
@@ -96,6 +96,26 @@ export function App() {
     setPeople((prev) => prev.map((p) => (p.id === id ? resolved : p)));
   }
 
+  async function selectPlace(id: string, prediction: AutocompletePrediction) {
+    updatePerson(id, { address: prediction.description, status: "loading", error: undefined });
+    try {
+      const result = await placeDetails(prediction.placeId);
+      if (!result) {
+        updatePerson(id, { status: "error", error: "No match found", location: undefined });
+        return;
+      }
+      updatePerson(id, {
+        status: "ok",
+        location: result.location,
+        resolvedAddress: result.formattedAddress,
+        error: undefined,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Lookup failed";
+      updatePerson(id, { status: "error", error: message, location: undefined });
+    }
+  }
+
   const mapOrigins: MapOrigin[] = useMemo(
     () =>
       people
@@ -182,6 +202,7 @@ export function App() {
               maxPeople={MAX_PEOPLE}
               onUpdate={updatePerson}
               onResolve={resolvePerson}
+              onSelectPlace={selectPlace}
               onRemove={removePerson}
               onAdd={addPerson}
             />

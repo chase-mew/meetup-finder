@@ -57,3 +57,15 @@ export interface GeocodeResult {
   location: LatLng;
   formattedAddress: string;
 }
+
+/** A single address suggestion from a places autocomplete service. */
+export interface AutocompletePrediction {
+  /** Provider place id, used to resolve exact coordinates on selection. */
+  placeId: string;
+  /** Full human readable description, e.g. "Waterloo Station, London, UK". */
+  description: string;
+  /** Primary line of the prediction, e.g. "Waterloo Station". */
+  mainText?: string;
+  /** Secondary line of the prediction, e.g. "London, UK". */
+  secondaryText?: string;
+}

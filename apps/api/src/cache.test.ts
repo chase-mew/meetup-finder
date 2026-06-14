@@ -1,6 +1,13 @@
 import type { SearchRequestBody } from "@meetup/core";
 import { describe, expect, it } from "vitest";
-import { MemoryCache, buildGeocodeCacheKey, buildSearchCacheKey, roundCoord } from "./cache";
+import {
+  MemoryCache,
+  buildAutocompleteCacheKey,
+  buildGeocodeCacheKey,
+  buildPlaceCacheKey,
+  buildSearchCacheKey,
+  roundCoord,
+} from "./cache";
 
 describe("roundCoord", () => {
   it("rounds to three decimals by default", () => {
@@ -14,6 +21,26 @@ describe("buildGeocodeCacheKey", () => {
     expect(buildGeocodeCacheKey("  Waterloo Station ")).toBe(
       buildGeocodeCacheKey("waterloo station"),
     );
+  });
+});
+
+describe("buildAutocompleteCacheKey", () => {
+  it("normalises case and collapses internal whitespace", () => {
+    expect(buildAutocompleteCacheKey("  Kings   Cross ")).toBe(
+      buildAutocompleteCacheKey("kings cross"),
+    );
+  });
+
+  it("differs from the geocode namespace for the same query", () => {
+    expect(buildAutocompleteCacheKey("kings cross")).not.toBe(
+      buildGeocodeCacheKey("kings cross"),
+    );
+  });
+});
+
+describe("buildPlaceCacheKey", () => {
+  it("trims the place id", () => {
+    expect(buildPlaceCacheKey("  abc ")).toBe(buildPlaceCacheKey("abc"));
   });
 });
 

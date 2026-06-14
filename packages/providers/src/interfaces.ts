@@ -1,4 +1,5 @@
 import type {
+  AutocompletePrediction,
   GeocodeResult,
   Place,
   PlacesSearchRequest,
@@ -9,6 +10,12 @@ import type {
 /** Turns a free text address into coordinates. */
 export interface GeocodingProvider {
   geocode(query: string): Promise<GeocodeResult | null>;
+}
+
+/** Suggests addresses as a user types and resolves a chosen one to coordinates. */
+export interface AutocompleteProvider {
+  autocomplete(query: string, sessionToken?: string): Promise<AutocompletePrediction[]>;
+  resolve(placeId: string, sessionToken?: string): Promise<GeocodeResult | null>;
 }
 
 /** Finds venues near a point and, optionally, enriches a single venue. */

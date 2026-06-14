@@ -1,6 +1,8 @@
 import type { SearchResponseBody } from "@meetup/core";
 import {
+  type AutocompletePrediction,
   type GeocodeResult,
+  GoogleAutocompleteProvider,
   GoogleGeocodingProvider,
   GooglePlacesProvider,
   GoogleTravelProvider,
@@ -11,7 +13,9 @@ import {
   type AsyncCache,
   KvCache,
   MemoryCache,
+  buildAutocompleteCacheKey,
   buildGeocodeCacheKey,
+  buildPlaceCacheKey,
   buildSearchCacheKey,
 } from "./cache";
 import { runSearch } from "./search";
@@ -26,6 +30,8 @@ interface Env {
 const PLACES_PHOTO_BASE = "https://places.googleapis.com/v1";
 const GEOCODE_TTL_SECONDS = 24 * 60 * 60;
 const SEARCH_TTL_SECONDS = 5 * 60;
+const AUTOCOMPLETE_TTL_SECONDS = 60 * 60;
+const PLACE_TTL_SECONDS = 24 * 60 * 60;
 
 // Fallback for local dev or when no KV namespace is bound.
 const memoryCache = new MemoryCache(700);
@@ -61,6 +67,60 @@ app.get("/api/geocode", async (c) => {
     const provider = new GoogleGeocodingProvider({ apiKey });
     const result = await provider.geocode(query);
     await cache.set(cacheKey, result, GEOCODE_TTL_SECONDS);
+    return result ? c.json(result) : c.json({ error: "No match found" }, 404);
+  } catch (error) {
+    return c.json({ error: messageOf(error) }, 502);
+  }
+});
+
+app.get("/api/autocomplete", async (c) => {
+  const apiKey = c.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "Server is missing GOOGLE_MAPS_API_KEY" }, 500);
+  }
+  const query = c.req.query("q")?.trim();
+  if (!query) {
+    return c.json({ predictions: [] });
+  }
+
+  const cache = cacheFor(c.env);
+  const cacheKey = buildAutocompleteCacheKey(query);
+  const cached = await cache.get<AutocompletePrediction[]>(cacheKey);
+  if (cached !== undefined) {
+    return c.json({ predictions: cached });
+  }
+
+  try {
+    const provider = new GoogleAutocompleteProvider({ apiKey });
+    const predictions = await provider.autocomplete(query);
+    await cache.set(cacheKey, predictions, AUTOCOMPLETE_TTL_SECONDS);
+    return c.json({ predictions });
+  } catch (error) {
+    return c.json({ error: messageOf(error) }, 502);
+  }
+});
+
+app.get("/api/place", async (c) => {
+  const apiKey = c.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "Server is missing GOOGLE_MAPS_API_KEY" }, 500);
+  }
+  const placeId = c.req.query("placeId")?.trim();
+  if (!placeId) {
+    return c.json({ error: "Query parameter placeId is required" }, 400);
+  }
+
+  const cache = cacheFor(c.env);
+  const cacheKey = buildPlaceCacheKey(placeId);
+  const cached = await cache.get<GeocodeResult | null>(cacheKey);
+  if (cached !== undefined) {
+    return cached ? c.json(cached) : c.json({ error: "No match found" }, 404);
+  }
+
+  try {
+    const provider = new GoogleAutocompleteProvider({ apiKey });
+    const result = await provider.resolve(placeId);
+    await cache.set(cacheKey, result, PLACE_TTL_SECONDS);
     return result ? c.json(result) : c.json({ error: "No match found" }, 404);
   } catch (error) {
     return c.json({ error: messageOf(error) }, 502);

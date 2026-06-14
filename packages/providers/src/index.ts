@@ -6,12 +6,14 @@ export type {
   TravelMatrixCell,
   TravelMatrixResult,
   GeocodeResult,
+  AutocompletePrediction,
 } from "./types";
 
 export type {
   GeocodingProvider,
   PlacesProvider,
   TravelProvider,
+  AutocompleteProvider,
 } from "./interfaces";
 
 export {
@@ -23,5 +25,10 @@ export {
 } from "./google/shared";
 
 export { GoogleGeocodingProvider, parseGeocodeResponse } from "./google/geocoding";
+export {
+  GoogleAutocompleteProvider,
+  parseAutocompleteResponse,
+  parsePlaceDetailsResponse,
+} from "./google/autocomplete";
 export { GooglePlacesProvider, parsePlace, boundingRectangle } from "./google/places";
 export { GoogleTravelProvider, parseMatrixElements } from "./google/routes";
