@@ -1,9 +1,11 @@
 import {
+  BEST_OBJECTIVES,
   type LatLng,
   type Objective,
   type Origin,
   type TransitPreferences,
   type TravelMode,
+  blendBestCost,
   haversineMeters,
   maxSeconds,
   objectiveCost,
@@ -134,9 +136,6 @@ export function dedupePoints(points: LatLng[], minSepMeters: number): LatLng[] {
   return kept;
 }
 
-// The three base objectives averaged together for the "best" objective.
-const BASE_OBJECTIVES = ["min_total", "min_max", "min_variance"] as const;
-
 function normalizeAcross(values: number[]): number[] {
   if (values.length === 0) {
     return values;
@@ -149,17 +148,19 @@ function normalizeAcross(values: number[]): number[] {
 
 /**
  * A sort key per anchor where lower is better. For a single objective this is
- * just that objective in seconds. For "best" we normalise each of the three
- * base objectives across the anchors and average them, mirroring the venue
- * scorer so area finding and final ranking agree on what "best" means.
+ * just that objective in seconds. For "best" we normalise each of the base
+ * objectives across the anchors and blend them with the shared weighting,
+ * mirroring the venue scorer so area finding and final ranking agree on what
+ * "best" means (fairness over raw efficiency, so a well connected hub next to
+ * one person does not win an area on total travel alone).
  */
 function anchorSortKeys(objective: Objective, durationsPerAnchor: number[][]): number[] {
   if (objective === "best") {
-    const components = BASE_OBJECTIVES.map((base) =>
+    const components = BEST_OBJECTIVES.map((base) =>
       normalizeAcross(durationsPerAnchor.map((times) => objectiveCost(base, times))),
     );
-    return durationsPerAnchor.map(
-      (_, i) => components.reduce((acc, component) => acc + component[i]!, 0) / components.length,
+    return durationsPerAnchor.map((_, i) =>
+      blendBestCost(components.map((component) => component[i]!)),
     );
   }
   return durationsPerAnchor.map((times) => objectiveCost(objective, times));

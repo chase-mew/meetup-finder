@@ -77,6 +77,23 @@ describe("scoreVenues", () => {
     expect(ranked[0]!.id).toBe("allround");
   });
 
+  it("best prefers a balanced venue over a lopsided but more efficient one", () => {
+    // The lopsided venue has the lowest total travel, so pure efficiency would
+    // pick it, but one person does almost all the journey. The balanced venue
+    // gives everyone a similar, shorter worst trip. "best" weights fairness
+    // above raw efficiency, so it should land on the balanced venue.
+    const candidates: ScoringCandidate[] = [
+      { id: "lopsided", rating: 4.3, ratingCount: 400, durationsSeconds: [120, 1200] },
+      { id: "balanced", rating: 4.3, ratingCount: 400, durationsSeconds: [720, 760] },
+    ];
+
+    const byEfficiency = scoreVenues(candidates, { objective: "min_total" });
+    expect(byEfficiency[0]!.id).toBe("lopsided");
+
+    const byBest = scoreVenues(candidates, { objective: "best" });
+    expect(byBest[0]!.id).toBe("balanced");
+  });
+
   it("best objective reports the worst trip as the headline cost", () => {
     const candidates: ScoringCandidate[] = [
       { id: "a", rating: 4, ratingCount: 100, durationsSeconds: [600, 1200] },

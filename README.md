@@ -2,7 +2,7 @@
 
 Find the fairest place to meet. Enter where everyone is starting from in London, pick a category (Cafe, Lunch, Dinner, Pub), and get the best places to meet ranked by real public transport travel time blended with venue star rating.
 
-The default objective is the fairest worst case travel (nobody travels too far), with optional advanced controls for the objective and how much rating matters. You can also narrow results with Google place filters: price level (one or more of inexpensive to very expensive), a minimum star rating, and, for lunch and dinner, cuisine hints such as Indian or Thai. Lunch and dinner searches are time aware: they favour venues that are open and serving at the meet time (a typical hour by default, or one you pick), and drop venues that are clearly shut then.
+The default objective balances fair, even travel for everyone: it leans on the worst single trip (nobody travels too far) and how evenly the journeys are shared, rather than raw total time, so the result lands between people instead of next to one of them. Advanced controls let you switch the objective and how much rating matters. You can also narrow results with Google place filters: price level (one or more of inexpensive to very expensive), a minimum star rating, and, for lunch and dinner, cuisine hints such as Indian or Thai. Lunch and dinner searches are time aware: they favour venues that are open and serving at the meet time (a typical hour by default, or one you pick), and drop venues that are clearly shut then.
 
 ## Why it is different
 

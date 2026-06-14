@@ -29,6 +29,9 @@ export {
   meanSeconds,
   varianceSeconds,
   objectiveCost,
+  BEST_OBJECTIVES,
+  BEST_OBJECTIVE_WEIGHTS,
+  blendBestCost,
 } from "./objectives";
 
 export {

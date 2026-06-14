@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  BEST_OBJECTIVES,
+  BEST_OBJECTIVE_WEIGHTS,
+  blendBestCost,
   maxSeconds,
   meanSeconds,
   objectiveCost,
@@ -62,5 +65,36 @@ describe("objectiveCost", () => {
     expect(objectiveCost("min_variance", even)).toBeLessThan(
       objectiveCost("min_variance", uneven),
     );
+  });
+});
+
+describe("best objective blend", () => {
+  it("lists the base objectives in the order the weights expect", () => {
+    expect(BEST_OBJECTIVES).toEqual(["min_total", "min_max", "min_variance"]);
+    expect(BEST_OBJECTIVE_WEIGHTS).toHaveLength(BEST_OBJECTIVES.length);
+  });
+
+  it("weights both fairness measures above raw efficiency", () => {
+    const [total, max, variance] = BEST_OBJECTIVE_WEIGHTS;
+    // min_total (efficiency) is only a tie-breaker; the worst trip and evenness
+    // carry the decision, so each of them outweighs efficiency.
+    expect(max).toBeGreaterThan(total!);
+    expect(variance).toBeGreaterThan(total!);
+  });
+
+  it("blends each component by its normalised weight", () => {
+    const sum = BEST_OBJECTIVE_WEIGHTS.reduce((acc, w) => acc + w, 0);
+    // A unit cost on a single objective returns that objective's share of the
+    // total weight, so efficiency contributes the least and fairness the most.
+    expect(blendBestCost([1, 0, 0])).toBeCloseTo(BEST_OBJECTIVE_WEIGHTS[0]! / sum, 10);
+    expect(blendBestCost([0, 1, 0])).toBeCloseTo(BEST_OBJECTIVE_WEIGHTS[1]! / sum, 10);
+    expect(blendBestCost([0, 0, 1])).toBeCloseTo(BEST_OBJECTIVE_WEIGHTS[2]! / sum, 10);
+    expect(blendBestCost([1, 0, 0])).toBeLessThan(blendBestCost([0, 1, 0]));
+    expect(blendBestCost([1, 0, 0])).toBeLessThan(blendBestCost([0, 0, 1]));
+  });
+
+  it("returns 0 and 1 at the extremes regardless of weight scale", () => {
+    expect(blendBestCost([0, 0, 0])).toBe(0);
+    expect(blendBestCost([1, 1, 1])).toBeCloseTo(1, 10);
   });
 });

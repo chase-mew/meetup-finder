@@ -1,4 +1,11 @@
-import { maxSeconds, objectiveCost, totalSeconds, varianceSeconds } from "./objectives";
+import {
+  BEST_OBJECTIVES,
+  blendBestCost,
+  maxSeconds,
+  objectiveCost,
+  totalSeconds,
+  varianceSeconds,
+} from "./objectives";
 import { DEFAULT_RATING_PRIOR, bayesianRating, normalizeRating } from "./rating";
 import type {
   BaseObjective,
@@ -10,9 +17,6 @@ import type {
 } from "./types";
 
 const DEFAULT_WEIGHTS: ScoreWeights = { travel: 0.7, rating: 0.3 };
-
-// The components averaged together for the "best" objective.
-const BASE_OBJECTIVES: BaseObjective[] = ["min_total", "min_max", "min_variance"];
 
 interface Intermediate {
   candidate: ScoringCandidate;
@@ -57,9 +61,10 @@ function costsForObjective(objective: BaseObjective, items: Intermediate[]): num
  * Per candidate travel score in 0..1 (0 best, 1 worst).
  *
  * For a single objective this is just that objective normalised across the set.
- * For "best" we normalise each of the three base objectives independently and
- * average them, so efficiency, worst case fairness, and evenness all count on
- * the same scale regardless of their very different raw magnitudes.
+ * For "best" we normalise each of the base objectives independently and blend
+ * them with {@link BEST_OBJECTIVE_WEIGHTS}, so efficiency, worst case fairness,
+ * and evenness all count on the same scale regardless of their very different
+ * raw magnitudes, with fairness weighted above raw efficiency.
  */
 function normalizedTravelScores(
   objective: Objective,
@@ -67,13 +72,10 @@ function normalizedTravelScores(
   reachable: boolean[],
 ): number[] {
   if (objective === "best") {
-    const components = BASE_OBJECTIVES.map((base) =>
+    const components = BEST_OBJECTIVES.map((base) =>
       normalizeCosts(costsForObjective(base, items), reachable),
     );
-    return items.map((_, i) => {
-      const sum = components.reduce((acc, component) => acc + component[i]!, 0);
-      return sum / components.length;
-    });
+    return items.map((_, i) => blendBestCost(components.map((component) => component[i]!)));
   }
   return normalizeCosts(costsForObjective(objective, items), reachable);
 }
