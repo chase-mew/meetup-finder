@@ -37,7 +37,7 @@ export {
   normalizeRating,
 } from "./rating";
 
-export { scoreVenues } from "./scoring";
+export { scoreVenues, normalizeWeights } from "./scoring";
 
 export { SEARCH_DEFAULTS } from "./defaults";
 

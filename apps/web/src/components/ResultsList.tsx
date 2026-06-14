@@ -54,6 +54,8 @@ export function ResultsList({ result, selectedId, onSelect }: ResultsListProps) 
             venue={venue}
             rank={index + 1}
             scaleSeconds={scaleSeconds}
+            objective={result.objective}
+            weights={result.weights}
             selected={venue.id === selectedId}
             onSelect={onSelect}
           />
