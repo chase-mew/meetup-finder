@@ -624,10 +624,22 @@ input[type="range"] {
   padding: 18px 20px 30px;
 }
 
+.results__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
 .results__summary {
   font-size: 14px;
   color: var(--muted);
-  margin-bottom: 14px;
+}
+
+.results__share {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .results__summary strong {
