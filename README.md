@@ -8,6 +8,14 @@ The default objective is the fairest worst case travel (nobody travels too far),
 
 Most "meet in the middle" tools compute a simple geographic midpoint. Meetup Finder scores real venues by the actual transit time from every person, using a selectable fairness objective and factoring in the venue rating.
 
+## Design
+
+The visual language is a small token based design system (type scale, spacing,
+colour with verified AA contrast, radius, shadow, and motion) defined as CSS
+custom properties in `apps/web/src/styles.css`. The research behind it, the
+design system reference, and before and after screenshots live in
+[`docs/design.md`](docs/design.md).
+
 ## Workspace layout
 
 This is a pnpm workspace.
