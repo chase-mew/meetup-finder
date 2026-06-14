@@ -16,6 +16,7 @@ import { ModePicker } from "./components/ModePicker";
 import { OriginsForm } from "./components/OriginsForm";
 import { ResultsList } from "./components/ResultsList";
 import type { Person } from "./types";
+import { useTheme } from "./useTheme";
 
 const MAX_PEOPLE = 10;
 
@@ -87,6 +88,7 @@ function coordLabel(lat: number, lng: number): string {
 }
 
 export function App() {
+  const { theme, toggle: toggleTheme } = useTheme();
   const [people, setPeople] = useState<Person[]>(() => [newPerson(), newPerson()]);
   const [category, setCategory] = useState<VenueCategory>("cafe");
   const [mode, setMode] = useState<TravelMode>("transit");
@@ -252,6 +254,18 @@ export function App() {
             <h1 className="topbar__title">Meetup Finder</h1>
             <p className="topbar__tag">Meet in the spot that is fairest for everyone.</p>
           </div>
+        </div>
+        <div className="topbar__actions">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-pressed={theme === "dark"}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+          </button>
         </div>
       </header>
 
