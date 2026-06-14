@@ -66,6 +66,35 @@ export function MoonIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Bookmark outline, for "save this person". */
+export function BookmarkIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
+/** Filled bookmark, for an already saved person. */
+export function BookmarkFilledIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} fill="currentColor" {...props}>
+      <path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
+/** Two people, for the "saved people" picker. */
+export function PeopleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+      <path d="M16 5.5a3 3 0 0 1 0 5.6M17.5 19a5.5 5.5 0 0 0-3-4.9" />
+    </svg>
+  );
+}
+
 /** Arrows pushing outward, for "expand the map". */
 export function ExpandIcon(props: SVGProps<SVGSVGElement>) {
   return (
