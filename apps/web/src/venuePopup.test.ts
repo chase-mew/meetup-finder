@@ -1,6 +1,6 @@
 import type { ResultVenue } from "@meetup/core";
 import { describe, expect, it } from "vitest";
-import { escapeHtml, venuePopupHtml } from "./venuePopup";
+import { escapeHtml, isSafeHttpUrl, venuePopupHtml } from "./venuePopup";
 
 function makeVenue(overrides: Partial<ResultVenue> = {}): ResultVenue {
   return {
@@ -25,6 +25,19 @@ describe("escapeHtml", () => {
     expect(escapeHtml(`<b>"Joe's" & co</b>`)).toBe(
       "&lt;b&gt;&quot;Joe&#39;s&quot; &amp; co&lt;/b&gt;",
     );
+  });
+});
+
+describe("isSafeHttpUrl", () => {
+  it("allows http and https", () => {
+    expect(isSafeHttpUrl("https://maps.google.com/?cid=1")).toBe(true);
+    expect(isSafeHttpUrl("http://example.com")).toBe(true);
+  });
+
+  it("rejects dangerous or malformed schemes", () => {
+    expect(isSafeHttpUrl("javascript:alert(1)")).toBe(false);
+    expect(isSafeHttpUrl("data:text/html,<script>alert(1)</script>")).toBe(false);
+    expect(isSafeHttpUrl("not a url")).toBe(false);
   });
 });
 
@@ -70,5 +83,11 @@ describe("venuePopupHtml", () => {
     const html = venuePopupHtml(makeVenue({ name: `<script>alert("x")</script>` }));
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("drops a directions link with an unsafe scheme", () => {
+    const html = venuePopupHtml(makeVenue({ googleMapsUri: "javascript:alert(1)" }));
+    expect(html).not.toContain("Directions");
+    expect(html).not.toContain("javascript:");
   });
 });

@@ -13,6 +13,19 @@ export function escapeHtml(value: string): string {
 }
 
 /**
+ * Whether a URL is safe to use as a link target. Escaping the value still lets
+ * `javascript:`/`data:` schemes through, so only allow http(s) links.
+ */
+export function isSafeHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build the inner HTML for a venue's map popup. Kept as a pure string builder so
  * it can be unit tested and handed straight to Leaflet's `bindPopup`. All
  * caller supplied text is escaped to keep the markup safe.
@@ -50,11 +63,12 @@ export function venuePopupHtml(venue: ResultVenue, rank?: number): string {
     formatDuration(venue.maxSeconds),
   )}</strong></div>`;
 
-  const directions = venue.googleMapsUri
-    ? `<a class="map-popup__link" href="${escapeHtml(
-        venue.googleMapsUri,
-      )}" target="_blank" rel="noreferrer">Directions</a>`
-    : "";
+  const directions =
+    venue.googleMapsUri && isSafeHttpUrl(venue.googleMapsUri)
+      ? `<a class="map-popup__link" href="${escapeHtml(
+          venue.googleMapsUri,
+        )}" target="_blank" rel="noopener noreferrer">Directions</a>`
+      : "";
 
   return (
     `<div class="map-popup">` +
