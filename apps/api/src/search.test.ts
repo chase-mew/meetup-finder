@@ -76,6 +76,34 @@ describe("runSearch", () => {
     expect(top.reachable).toBe(true);
   });
 
+  it("requests the configured number of pages per area to gather a deeper pool", async () => {
+    const places = fakePlaces();
+    const travel = fakeTravel();
+    await runSearch({ places, travel }, baseBody);
+
+    // 3 pages of 20 is the Text Search cap, the deepest single query pool.
+    expect(DEFAULT_SEARCH_CONFIG.searchPages).toBe(3);
+    const searchCalls = (places.search as ReturnType<typeof vi.fn>).mock.calls;
+    expect(searchCalls.length).toBeGreaterThan(0);
+    for (const [request] of searchCalls) {
+      expect(request.maxPages).toBe(DEFAULT_SEARCH_CONFIG.searchPages);
+    }
+  });
+
+  it("prunes the pool to the default candidate limit before the venue matrix", async () => {
+    // A pool larger than the limit so we can observe the prune taking effect.
+    const pool: Place[] = Array.from({ length: 80 }, (_, i) =>
+      makePlace(`v${i}`, 51.5 + i * 0.0005, -0.12 + i * 0.0005, 4.5, 500),
+    );
+    const places = fakePlaces(pool);
+    const travel = fakeTravel();
+    await runSearch({ places, travel }, baseBody);
+
+    const calls = (travel.matrix as ReturnType<typeof vi.fn>).mock.calls;
+    const venueMatrix = calls.at(-1)![0] as TravelMatrixRequest;
+    expect(venueMatrix.destinations.length).toBe(DEFAULT_SEARCH_CONFIG.candidateLimit);
+  });
+
   it("prunes candidates before the venue travel matrix to control cost", async () => {
     const places = fakePlaces();
     const travel = fakeTravel();

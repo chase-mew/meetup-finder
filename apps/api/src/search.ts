@@ -37,9 +37,17 @@ export interface SearchConfig {
 }
 
 export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
-  candidateLimit: 24,
+  // Prune the pooled venues to this many before the (more expensive) venue
+  // travel matrix. With up to 4 areas at 60 venues each, the pooled, deduped
+  // set comfortably exceeds the ~100 venue target, so a higher prune limit lets
+  // more of that pool reach the scorer. The transit matrix chunks by the 100
+  // element cap, so 36 destinations stays within one or two requests for typical
+  // group sizes (see the routes element cap in packages/providers).
+  candidateLimit: 36,
   defaultLimit: SEARCH_DEFAULTS.limit,
-  searchPages: 2,
+  // Text Search (New) caps pagination at 3 pages of 20, so 3 pages yields the
+  // maximum 60 venues per area from a single query without silently failing.
+  searchPages: 3,
   areaRadiusMeters: 1_300,
   area: DEFAULT_AREA_CONFIG,
 };
