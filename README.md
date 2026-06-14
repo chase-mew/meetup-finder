@@ -88,6 +88,19 @@ The MVP uses Google Maps Platform. Enable these APIs on your key: Geocoding API,
 
 The Worker caches geocode lookups and search results. Keys for searches round each origin to about 110 metres and are order independent, so nearby addresses and a different input order reuse the same result. With no KV namespace bound it uses an in memory cache per isolate. To make the cache durable across isolates, create a KV namespace and bind it (see `apps/api/wrangler.toml`).
 
+## Rate limiting and abuse protection
+
+Each search fans out into several paid Google calls, so the public Worker throttles its paid endpoints (`POST /api/search` and `GET /api/geocode`) to keep cost bounded. Throttling is a per client token bucket keyed by `cf-connecting-ip`, with an optional global daily ceiling as a backstop. When a client exceeds its limit the Worker replies with HTTP 429, a `Retry-After` header, and a friendly `error` message that the web app surfaces.
+
+Limit state lives in the `CACHE` KV namespace when one is bound, so it is shared across isolates. Without KV it falls back to an in memory store per isolate. KV is eventually consistent, so the bucket is a best effort guardrail aimed at bounding cost rather than enforcing an exact quota.
+
+Everything is configurable through environment variables in `apps/api/wrangler.toml` (or as secrets):
+
+- `RATE_LIMIT_ENABLED` set to `"false"` to disable throttling entirely. Defaults to on.
+- `RATE_LIMIT_RPM` sustained requests per minute per client. Default `30`.
+- `RATE_LIMIT_BURST` bucket capacity, the largest burst a client can make at once. Default `15`.
+- `RATE_LIMIT_DAILY_MAX` global daily request ceiling across all clients. `0` disables it (the default).
+
 ## Deployment
 
 The Worker and the web app deploy separately.

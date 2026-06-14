@@ -16,6 +16,9 @@ async function parseError(response: Response): Promise<string> {
   } catch {
     // ignore
   }
+  if (response.status === 429) {
+    return "Too many requests. Please slow down and try again in a moment.";
+  }
   return `Request failed (${response.status})`;
 }
 
