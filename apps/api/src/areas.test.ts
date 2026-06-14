@@ -12,6 +12,7 @@ import {
   findMeetingAreas,
   selectSpreadStations,
   subsampleEven,
+  thinGrid,
 } from "./areas";
 import stationsData from "./data/london-stations.json";
 
@@ -84,6 +85,37 @@ describe("subsampleEven", () => {
   it("handles zero and one", () => {
     expect(subsampleEven([1, 2, 3], 0)).toEqual([]);
     expect(subsampleEven([1, 2, 3], 1)).toEqual([1]);
+  });
+});
+
+describe("thinGrid", () => {
+  it("keeps even 2D coverage rather than a diagonal when thinning a row-major grid", () => {
+    const grid = buildGrid({ minLat: 0, minLng: 0, maxLat: 9, maxLng: 9 }, 10); // 100 points
+    const thinned = thinGrid(grid, 10, 25);
+    expect(thinned.length).toBeLessThanOrEqual(25);
+    expect(thinned.length).toBeGreaterThan(0);
+
+    const lats = thinned.map((p) => p.lat);
+    const lngs = thinned.map((p) => p.lng);
+    // Corners of the box are kept, so coverage spans both axes fully.
+    expect(Math.min(...lats)).toBe(0);
+    expect(Math.max(...lats)).toBe(9);
+    expect(Math.min(...lngs)).toBe(0);
+    expect(Math.max(...lngs)).toBe(9);
+
+    // A flat-index subsample would couple lat and lng into one diagonal line;
+    // a rectangular sub-grid keeps several distinct values on each axis.
+    const distinctLats = new Set(lats).size;
+    const distinctLngs = new Set(lngs).size;
+    expect(distinctLats).toBeGreaterThan(2);
+    expect(distinctLngs).toBeGreaterThan(2);
+    expect(thinned.length).toBe(distinctLats * distinctLngs);
+  });
+
+  it("returns the whole grid when count is at least its size", () => {
+    const grid = buildGrid({ minLat: 0, minLng: 0, maxLat: 2, maxLng: 2 }, 3);
+    expect(thinGrid(grid, 3, 100)).toEqual(grid);
+    expect(thinGrid(grid, 3, 0)).toEqual([]);
   });
 });
 
@@ -205,8 +237,14 @@ describe("buildAnchors", () => {
     const transit = buildAnchors(wideOrigins, DEFAULT_AREA_CONFIG, "transit");
     const walking = buildAnchors(wideOrigins, DEFAULT_AREA_CONFIG, "walking");
 
-    expect(walking.length).toBeLessThanOrEqual(80);
+    // Walking has no stations, so the grid (plus a leftover backfill that
+    // reclaims unused slots) fills the cap exactly. The 100-point grid easily
+    // covers 80 slots.
+    expect(walking.length).toBe(80);
     expect(countStationAnchors(walking)).toBe(0); // non-transit never adds stations
+
+    // Transit fills the cap too, with stations taking their reserved share.
+    expect(transit.length).toBe(80);
 
     const stationAnchors = transit.filter((a) => STATION_KEYS.has(`${a.lat},${a.lng}`));
     // Stations are not crowded out: a healthy reserved share survives.

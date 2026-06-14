@@ -176,10 +176,9 @@ function stationsInBox(bbox: BoundingBox): Station[] {
 }
 
 /**
- * Take `count` points spread evenly across `points`, keeping the first and last
- * so the full extent is covered. Used to thin a dense grid that overflows its
- * slice of the cap without losing coverage at the edges of the box (a plain
- * head slice would keep only the first rows and leave the rest of the box bare).
+ * Take `count` items spread evenly across a 1D list, keeping the first and last
+ * so the full extent is covered. Used to choose evenly spaced row and column
+ * indices for {@link thinGrid} and to spread a small leftover backfill.
  */
 export function subsampleEven<T>(points: T[], count: number): T[] {
   if (count <= 0) {
@@ -195,6 +194,39 @@ export function subsampleEven<T>(points: T[], count: number): T[] {
   for (let k = 0; k < count; k += 1) {
     const index = Math.round((k * (points.length - 1)) / (count - 1));
     out.push(points[index]!);
+  }
+  return out;
+}
+
+/**
+ * Thin a row-major `n x n` grid down to at most `count` points while staying
+ * spatially even in both dimensions. Subsampling the flattened array would walk
+ * a diagonal and leave whole corners of the box bare, so instead we keep an
+ * evenly spaced subset of rows and columns (a coarser rectangular sub-grid),
+ * which preserves coverage across the full box. Expects the untrimmed grid from
+ * {@link buildGrid} so the `row * n + col` indexing is valid.
+ */
+export function thinGrid(grid: LatLng[], n: number, count: number): LatLng[] {
+  if (count <= 0 || grid.length === 0) {
+    return [];
+  }
+  if (count >= grid.length || n < 2) {
+    return grid.slice(0, count >= grid.length ? grid.length : count);
+  }
+  const ratio = Math.sqrt(count / (n * n));
+  const rows = Math.min(n, Math.max(1, Math.round(n * ratio)));
+  const cols = Math.min(n, Math.max(1, Math.floor(count / rows)));
+  const axis = [...Array(n).keys()];
+  const rowIndices = subsampleEven(axis, rows);
+  const colIndices = subsampleEven(axis, cols);
+  const out: LatLng[] = [];
+  for (const r of rowIndices) {
+    for (const c of colIndices) {
+      const point = grid[r * n + c];
+      if (point) {
+        out.push(point);
+      }
+    }
   }
   return out;
 }
@@ -281,9 +313,11 @@ export function selectSpreadStations(
  * grid is a fixed 10 by 10 (100 points), a large group can push the cap below
  * the grid size, so the cap is split: the median is always kept, a reserved
  * share goes to a geographically spread, importance-weighted set of stations,
- * and the grid fills the rest (thinned evenly when it overflows). This stops a
- * dense grid from starving stations for groups up to 10 people. The 150 m
- * dedupe applies throughout and the total never exceeds the cap.
+ * and the grid fills the rest, thinned with even 2D coverage when it overflows.
+ * This stops a dense grid from starving stations for groups up to 10 people.
+ * Slots either pool leaves unused (a short grid, or stations lost to dedupe) are
+ * handed to the other. The 150 m dedupe applies throughout and the total never
+ * exceeds the cap.
  */
 export function buildAnchors(
   origins: Origin[],
@@ -310,10 +344,7 @@ export function buildAnchors(
     return kept;
   }
 
-  // Grid points, deduped against the median and each other. dedupePoints keeps
-  // the median first, so drop it back out to leave just the grid.
-  const grid = dedupePoints([median, ...buildGrid(bbox, config.gridSize)], 150).slice(1);
-
+  const fullGrid = buildGrid(bbox, config.gridSize);
   const stationCandidates =
     mode === "transit" ? stationsInBox(bbox).slice().sort((a, b) => b.lines - a.lines) : [];
 
@@ -321,18 +352,37 @@ export function buildAnchors(
   // no stations the grid takes everything; otherwise reserve a fair share for
   // stations so a large grid cannot crowd them out.
   const remainingSlots = cap - 1;
-  let gridSlots = remainingSlots;
-  let stationSlots = 0;
-  if (stationCandidates.length > 0) {
-    const reservedForStations = Math.round(cap * STATION_RESERVE_FRACTION);
-    gridSlots = Math.max(0, Math.min(grid.length, remainingSlots - reservedForStations));
-    stationSlots = remainingSlots - gridSlots;
+  const stationTarget =
+    stationCandidates.length > 0
+      ? Math.min(remainingSlots, Math.round(cap * STATION_RESERVE_FRACTION))
+      : 0;
+  const gridTarget = remainingSlots - stationTarget;
+
+  // Grid: thin to the target with even 2D coverage, then drop any point that
+  // collides with the median so the 150 m dedupe holds.
+  for (const point of thinGrid(fullGrid, config.gridSize, gridTarget)) {
+    if (kept.every((k) => haversineMeters(k, point) >= 150)) {
+      kept.push(point);
+    }
   }
 
-  kept.push(...subsampleEven(grid, gridSlots));
+  // Stations: fill up to whatever is actually left, so a grid that came in
+  // under its target hands the spare slots back to stations.
+  if (stationCandidates.length > 0) {
+    const stationLimit = cap - kept.length;
+    if (stationLimit > 0) {
+      kept.push(...selectSpreadStations(stationCandidates, stationLimit, kept, 150));
+    }
+  }
 
-  if (stationSlots > 0 && stationCandidates.length > 0) {
-    kept.push(...selectSpreadStations(stationCandidates, stationSlots, kept, 150));
+  // Reclaim any station slots that dedupe left unused with more grid coverage,
+  // so a search never returns under the cap while grid anchors remain.
+  const spareSlots = cap - kept.length;
+  if (spareSlots > 0) {
+    const leftover = fullGrid.filter((point) =>
+      kept.every((k) => haversineMeters(k, point) >= 150),
+    );
+    kept.push(...subsampleEven(leftover, spareSlots));
   }
 
   return kept.slice(0, cap);
