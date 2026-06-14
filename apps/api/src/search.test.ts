@@ -1,7 +1,7 @@
-import { haversineMeters, type SearchRequestBody } from "@meetup/core";
+import { haversineMeters, type RegularOpeningHours, type SearchRequestBody } from "@meetup/core";
 import type { Place, PlacesProvider, TravelMatrixRequest, TravelProvider } from "@meetup/providers";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_SEARCH_CONFIG, deriveSearchRadius, runSearch } from "./search";
+import { DEFAULT_SEARCH_CONFIG, deriveSearchRadius, mealFitEvaluator, runSearch } from "./search";
 
 const ORIGINS: SearchRequestBody["origins"] = [
   { id: "a", label: "Alice", location: { lat: 51.5308, lng: -0.1238 } }, // King's Cross
@@ -144,5 +144,104 @@ describe("runSearch", () => {
     const result = await runSearch({ places: fakePlaces(), travel }, baseBody);
     expect(result.venues.length).toBeGreaterThan(0);
     expect(result.unreachableOrigins).toEqual(["b"]);
+  });
+});
+
+// Opening hours that repeat the same span every day of the week.
+function everyDay(
+  open: [number, number],
+  close: [number, number],
+): RegularOpeningHours {
+  return {
+    periods: Array.from({ length: 7 }, (_, day) => ({
+      open: { day, hour: open[0], minute: open[1] },
+      close: { day, hour: close[0], minute: close[1] },
+    })),
+  };
+}
+
+describe("mealFitEvaluator", () => {
+  it("is null for non meal categories", () => {
+    expect(mealFitEvaluator({ ...baseBody, category: "cafe" })).toBeNull();
+    expect(mealFitEvaluator({ ...baseBody, category: "pub" })).toBeNull();
+  });
+
+  it("penalises a venue that does not serve the meal", () => {
+    const evaluator = mealFitEvaluator({ ...baseBody, category: "dinner" });
+    const place = makePlace("x", 51.5, -0.1, 4.5, 100);
+    expect(evaluator).not.toBeNull();
+    const fit = evaluator!({ ...place, servesDinner: false, regularOpeningHours: everyDay([17, 0], [23, 0]) });
+    expect(fit.closed).toBe(false);
+    expect(fit.penalty).toBeGreaterThan(0);
+  });
+});
+
+describe("runSearch meal awareness", () => {
+  // Two venues at the same spot so only the meal fit separates them.
+  const here = { lat: 51.515, lng: -0.118 };
+
+  it("ranks a venue serving the meal above one that does not", async () => {
+    const serving: Place = {
+      id: "serves",
+      name: "serves",
+      location: here,
+      rating: 4.5,
+      ratingCount: 500,
+      servesDinner: true,
+      regularOpeningHours: everyDay([17, 0], [23, 30]),
+    };
+    const notServing: Place = {
+      id: "no-serve",
+      name: "no-serve",
+      location: here,
+      rating: 4.5,
+      ratingCount: 500,
+      servesDinner: false,
+      regularOpeningHours: everyDay([17, 0], [23, 30]),
+    };
+    const result = await runSearch(
+      { places: fakePlaces([serving, notServing]), travel: fakeTravel() },
+      { ...baseBody, category: "dinner", limit: 5 },
+    );
+    const ids = result.venues.map((v) => v.id);
+    expect(ids).toContain("serves");
+    expect(ids).toContain("no-serve");
+    expect(ids.indexOf("serves")).toBeLessThan(ids.indexOf("no-serve"));
+  });
+
+  it("excludes a venue clearly shut at the dinner meet time", async () => {
+    const open: Place = {
+      id: "open",
+      name: "open",
+      location: here,
+      rating: 4.4,
+      ratingCount: 400,
+      servesDinner: true,
+      regularOpeningHours: everyDay([17, 0], [23, 0]),
+    };
+    const shut: Place = {
+      id: "shut",
+      name: "shut",
+      location: here,
+      rating: 4.9,
+      ratingCount: 5000,
+      servesDinner: true,
+      regularOpeningHours: everyDay([8, 0], [15, 0]),
+    };
+    const result = await runSearch(
+      { places: fakePlaces([open, shut]), travel: fakeTravel() },
+      { ...baseBody, category: "dinner", meetTime: "19:30", limit: 5 },
+    );
+    const ids = result.venues.map((v) => v.id);
+    expect(ids).toContain("open");
+    expect(ids).not.toContain("shut");
+  });
+
+  it("leaves cafe searches unaffected by opening hours", async () => {
+    const result = await runSearch(
+      { places: fakePlaces(), travel: fakeTravel() },
+      { ...baseBody, category: "cafe" },
+    );
+    expect(result.venues.length).toBeGreaterThan(0);
   });
 });

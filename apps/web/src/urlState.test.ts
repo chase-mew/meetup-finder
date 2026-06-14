@@ -18,6 +18,7 @@ const sampleState: SearchUrlState = {
   ratingWeight: 0.4,
   limit: 8,
   openNow: true,
+  meetTime: "19:30",
   excludeBuses: false,
   transitRouting: "any",
 };
@@ -92,9 +93,15 @@ describe("decodeSearchState", () => {
       ratingWeight: SEARCH_DEFAULTS.ratingWeight,
       limit: SEARCH_DEFAULTS.limit,
       openNow: false,
+      meetTime: "",
       excludeBuses: false,
       transitRouting: "any",
     });
+  });
+
+  it("ignores an invalid meet time and round trips a valid one", () => {
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&meet=25:99")?.meetTime).toBe("");
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&meet=12:30")?.meetTime).toBe("12:30");
   });
 
   it("accepts the park category", () => {

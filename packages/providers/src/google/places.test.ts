@@ -14,6 +14,14 @@ describe("parsePlace", () => {
       primaryType: "coffee_shop",
       primaryTypeDisplayName: { text: "Coffee shop" },
       currentOpeningHours: { openNow: true },
+      servesBreakfast: true,
+      servesLunch: true,
+      servesDinner: false,
+      regularOpeningHours: {
+        periods: [
+          { open: { day: 1, hour: 8, minute: 0 }, close: { day: 1, hour: 17, minute: 30 } },
+        ],
+      },
       photos: [{ name: "places/abc/photos/xyz" }],
     });
     expect(place).toMatchObject({
@@ -23,13 +31,54 @@ describe("parsePlace", () => {
       ratingCount: 1200,
       priceLevel: 2,
       openNow: true,
+      servesBreakfast: true,
+      servesLunch: true,
+      servesDinner: false,
       photoRef: "places/abc/photos/xyz",
     });
+    expect(place?.regularOpeningHours?.periods).toEqual([
+      { open: { day: 1, hour: 8, minute: 0 }, close: { day: 1, hour: 17, minute: 30 } },
+    ]);
   });
 
   it("returns null without an id or location", () => {
     expect(parsePlace({ displayName: { text: "x" } })).toBeNull();
     expect(parsePlace({ id: "x" })).toBeNull();
+  });
+
+  it("omits opening hours when none are provided and keeps an always open period", () => {
+    const withoutHours = parsePlace({
+      id: "a",
+      location: { latitude: 1, longitude: 2 },
+    });
+    expect(withoutHours?.regularOpeningHours).toBeUndefined();
+
+    const alwaysOpen = parsePlace({
+      id: "b",
+      location: { latitude: 1, longitude: 2 },
+      regularOpeningHours: { periods: [{ open: { day: 0, hour: 0, minute: 0 } }] },
+    });
+    expect(alwaysOpen?.regularOpeningHours?.periods).toEqual([
+      { open: { day: 0, hour: 0, minute: 0 } },
+    ]);
+  });
+
+  it("drops opening-hours points with out of range day, hour, or minute", () => {
+    const place = parsePlace({
+      id: "c",
+      location: { latitude: 1, longitude: 2 },
+      regularOpeningHours: {
+        periods: [
+          { open: { day: 9, hour: 8, minute: 0 }, close: { day: 1, hour: 17, minute: 0 } },
+          { open: { day: 1, hour: 30, minute: 0 }, close: { day: 1, hour: 17, minute: 0 } },
+          { open: { day: 1, hour: 8, minute: 75 }, close: { day: 1, hour: 17, minute: 0 } },
+          { open: { day: 2, hour: 9, minute: 0 }, close: { day: 2, hour: 17, minute: 0 } },
+        ],
+      },
+    });
+    expect(place?.regularOpeningHours?.periods).toEqual([
+      { open: { day: 2, hour: 9, minute: 0 }, close: { day: 2, hour: 17, minute: 0 } },
+    ]);
   });
 });
 
@@ -71,6 +120,9 @@ describe("GooglePlacesProvider", () => {
     const headers = (init as RequestInit).headers as Record<string, string>;
     expect(headers["X-Goog-FieldMask"]).toContain("nextPageToken");
     expect(headers["X-Goog-FieldMask"]).toContain("places.primaryType");
+    expect(headers["X-Goog-FieldMask"]).toContain("places.servesLunch");
+    expect(headers["X-Goog-FieldMask"]).toContain("places.servesDinner");
+    expect(headers["X-Goog-FieldMask"]).toContain("places.regularOpeningHours.periods");
     const sent = JSON.parse(String((init as RequestInit).body));
     expect(sent.textQuery).toBe("pub");
     expect(sent.locationRestriction.rectangle).toBeDefined();

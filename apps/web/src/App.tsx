@@ -160,6 +160,7 @@ export function App() {
   const [ratingWeight, setRatingWeight] = useState<number>(SEARCH_DEFAULTS.ratingWeight);
   const [limit, setLimit] = useState<number>(SEARCH_DEFAULTS.limit);
   const [openNow, setOpenNow] = useState(false);
+  const [meetTime, setMeetTime] = useState("");
   const [excludeBuses, setExcludeBuses] = useState(false);
   const [transitRouting, setTransitRouting] = useState<TransitRoutingChoice>("any");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -272,6 +273,7 @@ export function App() {
       ratingWeight: number;
       limit: number;
       openNow: boolean;
+      meetTime: string;
       excludeBuses: boolean;
       transitRouting: TransitRoutingChoice;
     },
@@ -284,6 +286,7 @@ export function App() {
       return;
     }
 
+    const usesMeetTime = options.category === "lunch" || options.category === "dinner";
     const body: SearchRequestBody = {
       origins,
       category: options.category,
@@ -293,6 +296,7 @@ export function App() {
       ratingWeight: Number(options.ratingWeight.toFixed(2)),
       limit: options.limit,
       openNow: options.openNow,
+      meetTime: usesMeetTime && options.meetTime ? options.meetTime : undefined,
       transit: buildTransitPreferences(options.mode, options.excludeBuses, options.transitRouting),
     };
 
@@ -310,6 +314,7 @@ export function App() {
         ratingWeight: options.ratingWeight,
         limit: options.limit,
         openNow: options.openNow,
+        meetTime: options.meetTime,
         excludeBuses: options.excludeBuses,
         transitRouting: options.transitRouting,
       };
@@ -356,6 +361,7 @@ export function App() {
       ratingWeight,
       limit,
       openNow,
+      meetTime,
       excludeBuses,
       transitRouting,
     });
@@ -379,6 +385,7 @@ export function App() {
     setRatingWeight(urlState.ratingWeight);
     setLimit(urlState.limit);
     setOpenNow(urlState.openNow);
+    setMeetTime(urlState.meetTime);
     setExcludeBuses(urlState.excludeBuses);
     setTransitRouting(urlState.transitRouting);
     if (
@@ -386,6 +393,7 @@ export function App() {
       urlState.ratingWeight !== SEARCH_DEFAULTS.ratingWeight ||
       urlState.limit !== SEARCH_DEFAULTS.limit ||
       urlState.openNow ||
+      urlState.meetTime ||
       urlState.excludeBuses ||
       urlState.transitRouting !== "any"
     ) {
@@ -408,6 +416,7 @@ export function App() {
         ratingWeight: urlState.ratingWeight,
         limit: urlState.limit,
         openNow: urlState.openNow,
+        meetTime: urlState.meetTime,
         excludeBuses: urlState.excludeBuses,
         transitRouting: urlState.transitRouting,
       });
@@ -488,6 +497,9 @@ export function App() {
                 onLimit={setLimit}
                 openNow={openNow}
                 onOpenNow={setOpenNow}
+                category={category}
+                meetTime={meetTime}
+                onMeetTime={setMeetTime}
                 showTransit={mode === "transit"}
                 excludeBuses={excludeBuses}
                 onExcludeBuses={setExcludeBuses}

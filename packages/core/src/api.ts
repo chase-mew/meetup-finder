@@ -25,6 +25,12 @@ export interface SearchRequestBody {
   openNow?: boolean;
   /** Optional override for the venue search radius in metres. */
   searchRadiusMeters?: number;
+  /**
+   * Time of day the group plans to meet, as 24 hour "HH:MM". Used for lunch and
+   * dinner searches to favour venues open and serving at that time. Defaults to
+   * a typical hour for the chosen meal.
+   */
+  meetTime?: string;
   /** Optional transit preferences, applied only when mode is transit. */
   transit?: TransitPreferences;
 }
@@ -50,6 +56,10 @@ export interface ResultVenue {
   googleMapsUri?: string;
   websiteUri?: string;
   openNow?: boolean;
+  /** Whether the venue serves lunch, when known. */
+  servesLunch?: boolean;
+  /** Whether the venue serves dinner, when known. */
+  servesDinner?: boolean;
   photoRef?: string;
   reachable: boolean;
   finalScore: number;

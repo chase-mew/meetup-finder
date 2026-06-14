@@ -80,7 +80,7 @@ export function roundCoord(value: number, decimals = 3): number {
  * Origins are rounded and sorted so that small address differences and a
  * different input order still hit the same cached result.
  */
-export function buildSearchCacheKey(body: SearchRequestBody): string {
+export function buildSearchCacheKey(body: SearchRequestBody, now: Date = new Date()): string {
   const origins = body.origins
     .map((origin) => [
       roundCoord(origin.location.lat),
@@ -88,6 +88,10 @@ export function buildSearchCacheKey(body: SearchRequestBody): string {
       origin.weight ?? 1,
     ])
     .sort((a, b) => a[0]! - b[0]! || a[1]! - b[1]! || a[2]! - b[2]!);
+
+  // Lunch and dinner are scored against opening hours, which are weekly, so the
+  // result depends on the weekday. Other categories ignore it.
+  const mealSensitive = body.category === "lunch" || body.category === "dinner";
 
   const shape = {
     o: origins,
@@ -99,6 +103,8 @@ export function buildSearchCacheKey(body: SearchRequestBody): string {
     l: body.limit ?? SEARCH_DEFAULTS.limit,
     on: body.openNow ?? false,
     r: body.searchRadiusMeters ?? null,
+    mt: body.meetTime ?? null,
+    d: mealSensitive ? now.getDay() : null,
   };
   return `search:v1:${JSON.stringify(shape)}`;
 }

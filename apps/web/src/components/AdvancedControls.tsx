@@ -1,4 +1,4 @@
-import type { Objective, TransitRoutingPreference } from "@meetup/core";
+import type { Objective, TransitRoutingPreference, VenueCategory } from "@meetup/core";
 
 const OBJECTIVES: Array<{ value: Objective; label: string; hint: string }> = [
   { value: "best", label: "Best", hint: "Balances all three goals below" },
@@ -25,6 +25,9 @@ interface AdvancedControlsProps {
   onLimit: (value: number) => void;
   openNow: boolean;
   onOpenNow: (value: boolean) => void;
+  category: VenueCategory;
+  meetTime: string;
+  onMeetTime: (value: string) => void;
   /** Transit only controls are shown when the travel mode is transit. */
   showTransit: boolean;
   excludeBuses: boolean;
@@ -32,6 +35,8 @@ interface AdvancedControlsProps {
   transitRouting: TransitRoutingChoice;
   onTransitRouting: (value: TransitRoutingChoice) => void;
 }
+
+const MEAL_CATEGORIES: VenueCategory[] = ["lunch", "dinner"];
 
 export function AdvancedControls(props: AdvancedControlsProps) {
   const travelPct = Math.round((1 - props.ratingWeight) * 100);
@@ -101,6 +106,21 @@ export function AdvancedControls(props: AdvancedControlsProps) {
           <span>Open now only</span>
         </label>
       </div>
+
+      {MEAL_CATEGORIES.includes(props.category) ? (
+        <label className="field field--inline">
+          <span className="field__label">
+            Meet time{" "}
+            <span className="muted">favour places serving {props.category} then</span>
+          </span>
+          <input
+            type="time"
+            value={props.meetTime}
+            onChange={(event) => props.onMeetTime(event.target.value)}
+            aria-label={`Planned ${props.category} time`}
+          />
+        </label>
+      ) : null}
 
       {props.showTransit ? (
         <div className="field">

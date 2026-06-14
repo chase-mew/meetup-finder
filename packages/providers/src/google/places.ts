@@ -1,4 +1,4 @@
-import type { LatLng } from "@meetup/core";
+import type { LatLng, RegularOpeningHours } from "@meetup/core";
 import type { PlacesProvider } from "../interfaces";
 import type { Place, PlacesSearchRequest } from "../types";
 import {
@@ -22,6 +22,10 @@ const SEARCH_FIELD_MASK = [
   "places.googleMapsUri",
   "places.websiteUri",
   "places.currentOpeningHours.openNow",
+  "places.regularOpeningHours.periods",
+  "places.servesBreakfast",
+  "places.servesLunch",
+  "places.servesDinner",
   "places.primaryType",
   "places.primaryTypeDisplayName",
   "places.photos",
@@ -42,9 +46,24 @@ interface PlacesApiPlace {
   googleMapsUri?: string;
   websiteUri?: string;
   currentOpeningHours?: { openNow?: boolean };
+  regularOpeningHours?: { periods?: PlacesApiPeriod[] };
+  servesBreakfast?: boolean;
+  servesLunch?: boolean;
+  servesDinner?: boolean;
   primaryType?: string;
   primaryTypeDisplayName?: { text?: string };
   photos?: Array<{ name?: string }>;
+}
+
+interface PlacesApiPeriodPoint {
+  day?: number;
+  hour?: number;
+  minute?: number;
+}
+
+interface PlacesApiPeriod {
+  open?: PlacesApiPeriodPoint;
+  close?: PlacesApiPeriodPoint;
 }
 
 interface SearchTextResponse {
@@ -67,6 +86,42 @@ function mapPriceLevel(value: string | undefined): number | undefined {
   return PRICE_LEVELS[value];
 }
 
+function isIntInRange(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+function parsePoint(
+  point: PlacesApiPeriodPoint | undefined,
+): { day: number; hour: number; minute: number } | null {
+  if (!point || !isIntInRange(point.day, 0, 6) || !isIntInRange(point.hour, 0, 23)) {
+    return null;
+  }
+  const minute = point.minute ?? 0;
+  if (!isIntInRange(minute, 0, 59)) {
+    return null;
+  }
+  return { day: point.day, hour: point.hour, minute };
+}
+
+function parseOpeningHours(
+  raw: { periods?: PlacesApiPeriod[] } | undefined,
+): RegularOpeningHours | undefined {
+  const rawPeriods = raw?.periods;
+  if (!rawPeriods || rawPeriods.length === 0) {
+    return undefined;
+  }
+  const periods = [];
+  for (const period of rawPeriods) {
+    const open = parsePoint(period.open);
+    if (!open) {
+      continue;
+    }
+    const close = parsePoint(period.close);
+    periods.push(close ? { open, close } : { open });
+  }
+  return periods.length > 0 ? { periods } : undefined;
+}
+
 export function parsePlace(raw: PlacesApiPlace): Place | null {
   const lat = raw.location?.latitude;
   const lng = raw.location?.longitude;
@@ -85,6 +140,10 @@ export function parsePlace(raw: PlacesApiPlace): Place | null {
     googleMapsUri: raw.googleMapsUri,
     websiteUri: raw.websiteUri,
     openNow: raw.currentOpeningHours?.openNow,
+    servesBreakfast: raw.servesBreakfast,
+    servesLunch: raw.servesLunch,
+    servesDinner: raw.servesDinner,
+    regularOpeningHours: parseOpeningHours(raw.regularOpeningHours),
     photoRef: raw.photos?.[0]?.name,
   };
 }

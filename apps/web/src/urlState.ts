@@ -4,6 +4,7 @@ import {
   SEARCH_DEFAULTS,
   type TravelMode,
   type VenueCategory,
+  parseTimeOfDay,
 } from "@meetup/core";
 import type { TransitRoutingChoice } from "./components/AdvancedControls";
 
@@ -22,6 +23,8 @@ export interface SearchUrlState {
   ratingWeight: number;
   limit: number;
   openNow: boolean;
+  /** Planned meet time as 24 hour "HH:MM", or "" when unset. */
+  meetTime: string;
   excludeBuses: boolean;
   transitRouting: TransitRoutingChoice;
 }
@@ -38,6 +41,7 @@ const DEFAULTS = {
   ratingWeight: SEARCH_DEFAULTS.ratingWeight,
   limit: SEARCH_DEFAULTS.limit,
   openNow: false,
+  meetTime: "",
   excludeBuses: false,
   transitRouting: "any" as TransitRoutingChoice,
 };
@@ -67,6 +71,9 @@ export function encodeSearchState(state: SearchUrlState): string {
   params.set("rw", String(Number(state.ratingWeight.toFixed(2))));
   params.set("limit", String(state.limit));
   params.set("open", state.openNow ? "1" : "0");
+  if (state.meetTime) {
+    params.set("meet", state.meetTime);
+  }
   params.set("xbus", state.excludeBuses ? "1" : "0");
   params.set("troute", state.transitRouting);
   return params.toString();
@@ -98,6 +105,7 @@ export function decodeSearchState(query: string): SearchUrlState | null {
     ratingWeight: parseWeight(params.get("rw")),
     limit: parseLimit(params.get("limit")),
     openNow: params.get("open") === "1",
+    meetTime: parseMeetTime(params.get("meet")),
     excludeBuses: params.get("xbus") === "1",
     transitRouting: pickEnum(params.get("troute"), TRANSIT_ROUTINGS, DEFAULTS.transitRouting),
   };
@@ -167,6 +175,13 @@ function parseWeight(raw: string | null): number {
     return DEFAULTS.ratingWeight;
   }
   return Math.min(1, Math.max(0, value));
+}
+
+function parseMeetTime(raw: string | null): string {
+  if (raw === null || parseTimeOfDay(raw) === undefined) {
+    return DEFAULTS.meetTime;
+  }
+  return raw.trim();
 }
 
 function parseLimit(raw: string | null): number {

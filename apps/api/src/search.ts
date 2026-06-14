@@ -1,14 +1,21 @@
 import {
+  DEFAULT_MEAL_MINUTES,
   type LatLng,
+  type MealFit,
   type Origin,
   type ResultLeg,
   type ResultVenue,
   SEARCH_DEFAULTS,
   type SearchRequestBody,
   type SearchResponseBody,
+  type WeekTime,
   bayesianRating,
+  evaluateMealFit,
   haversineMeters,
+  mealServiceForCategory,
   normalizeWeights,
+  parseTimeOfDay,
+  resolveMealTarget,
   scoreVenues,
   weightedGeometricMedian,
 } from "@meetup/core";
@@ -98,6 +105,27 @@ export function preselectCandidates(
     .map((entry) => entry.place);
 }
 
+/**
+ * Build the meal fit evaluator for a search, or null when the category is not
+ * meal specific (cafe, pub). The target time defaults to a typical hour for the
+ * meal and can be overridden by the caller's meet time.
+ */
+export function mealFitEvaluator(
+  body: SearchRequestBody,
+  now: Date = new Date(),
+): ((place: Place) => MealFit) | null {
+  const meal = mealServiceForCategory(body.category);
+  if (!meal) {
+    return null;
+  }
+  const minutes = parseTimeOfDay(body.meetTime) ?? DEFAULT_MEAL_MINUTES[meal];
+  const target: WeekTime = resolveMealTarget(minutes, now);
+  return (place: Place) => {
+    const serves = meal === "lunch" ? place.servesLunch : place.servesDinner;
+    return evaluateMealFit({ serves, hours: place.regularOpeningHours, target });
+  };
+}
+
 /** Remove duplicate venues that appear in more than one area's search. */
 export function dedupePlacesById(places: Place[]): Place[] {
   const seen = new Set<string>();
@@ -161,7 +189,17 @@ export async function runSearch(
   );
   const found = dedupePlacesById(pools.flat());
 
-  const candidates = preselectCandidates(centers, found, config.candidateLimit);
+  // For lunch and dinner, judge each venue against the meet time so the search
+  // favours places open and serving then. Venues we know are shut are dropped,
+  // unless that would empty the pool, in which case we keep everything.
+  const mealFit = mealFitEvaluator(body);
+  let pool = found;
+  if (mealFit) {
+    const open = found.filter((place) => !mealFit(place).closed);
+    pool = open.length > 0 ? open : found;
+  }
+
+  const candidates = preselectCandidates(centers, pool, config.candidateLimit);
   logger.info("candidates selected", { found: found.length, candidates: candidates.length });
 
   const weights = normalizeWeights({
@@ -234,7 +272,22 @@ export async function runSearch(
   const indexById = new Map<string, number>(candidates.map((c, i) => [c.id, i]));
   const limit = body.limit ?? config.defaultLimit;
 
-  const venues: ResultVenue[] = scored.slice(0, limit).flatMap((entry) => {
+  // Nudge reachable venues that do not serve the meal down the ranking, while
+  // keeping unreachable venues last so the meal penalty cannot leapfrog them.
+  const ranked = mealFit
+    ? scored
+        .map((entry) => {
+          if (!entry.reachable) {
+            return entry;
+          }
+          const place = placeById.get(entry.id);
+          const penalty = place ? mealFit(place).penalty : 0;
+          return { ...entry, finalScore: entry.finalScore + penalty };
+        })
+        .sort((a, b) => a.finalScore - b.finalScore)
+    : scored;
+
+  const venues: ResultVenue[] = ranked.slice(0, limit).flatMap((entry) => {
     const place = placeById.get(entry.id);
     const destinationIndex = indexById.get(entry.id);
     if (!place || destinationIndex === undefined) {
@@ -260,6 +313,8 @@ export async function runSearch(
         googleMapsUri: place.googleMapsUri,
         websiteUri: place.websiteUri,
         openNow: place.openNow,
+        servesLunch: place.servesLunch,
+        servesDinner: place.servesDinner,
         photoRef: place.photoRef,
         reachable: entry.reachable,
         finalScore: entry.finalScore,

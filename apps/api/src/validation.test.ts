@@ -76,6 +76,7 @@ describe("validateSearchRequest", () => {
       ratingWeight: 0.4,
       limit: 3,
       openNow: true,
+      meetTime: "12:30",
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -83,7 +84,13 @@ describe("validateSearchRequest", () => {
       expect(result.value.travelWeight).toBe(0.6);
       expect(result.value.limit).toBe(3);
       expect(result.value.openNow).toBe(true);
+      expect(result.value.meetTime).toBe("12:30");
     }
+  });
+
+  it("rejects a malformed meet time", () => {
+    expect(validateSearchRequest({ ...validBody, meetTime: "25:00" }).ok).toBe(false);
+    expect(validateSearchRequest({ ...validBody, meetTime: "noon" }).ok).toBe(false);
   });
 
   it("carries through valid transit preferences", () => {
