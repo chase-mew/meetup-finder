@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.9",
     "@meetup/core": "workspace:*",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",

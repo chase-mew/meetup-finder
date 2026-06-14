@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { type AutocompletePrediction, autocomplete } from "../api";
 import type { Person } from "../types";
+import { LocateIcon } from "./icons";
 
 interface OriginsFormProps {
   people: Person[];
@@ -238,7 +239,7 @@ function OriginRow({
               onClick={() => onUseMyLocation(person.id)}
               disabled={person.status === "locating"}
             >
-              <span aria-hidden="true">◎</span>
+              <LocateIcon />
               {person.status === "locating" ? "Locating…" : "Use my location"}
             </button>
           ) : null}

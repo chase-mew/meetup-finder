@@ -69,7 +69,7 @@ export function VenueCard({
           <span>
             Longest trip <strong>{formatDuration(venue.maxSeconds)}</strong>
           </span>
-          <span className="muted">·</span>
+          <span className="venue__summary-sep" aria-hidden="true" />
           <span>
             Total <strong>{formatDuration(venue.totalSeconds)}</strong>
           </span>

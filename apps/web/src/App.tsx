@@ -20,6 +20,7 @@ import {
 import { reportError } from "./reporting";
 import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
+import { LogoMark, MeetIcon, MoonIcon, SunIcon } from "./components/icons";
 import { LoadingResults } from "./components/LoadingResults";
 import { MapView, type MapOrigin } from "./components/MapView";
 import { ModePicker } from "./components/ModePicker";
@@ -469,7 +470,9 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="topbar__brand">
-          <span className="topbar__logo">◎</span>
+          <span className="topbar__logo" aria-hidden="true">
+            <LogoMark />
+          </span>
           <div>
             <h1 className="topbar__title">Meetup Finder</h1>
             <p className="topbar__tag">Meet in the spot that is fairest for everyone.</p>
@@ -484,7 +487,7 @@ export function App() {
             aria-pressed={theme === "dark"}
             title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           >
-            <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
           </button>
         </div>
       </header>
@@ -595,11 +598,29 @@ export function App() {
             />
           ) : (
             <div className="state state--empty">
+              <span className="state__art" aria-hidden="true">
+                <MeetIcon />
+              </span>
               <h2>Find the fairest place to meet</h2>
               <p>
-                Add two or more starting points, pick a category, and Meetup Finder ranks real
-                venues by the actual travel time for everyone, blended with how good the place is.
+                Add where everyone is starting from and pick what you fancy. Meetup Finder ranks
+                real venues by the actual travel time for each person, blended with how good the
+                place is.
               </p>
+              <ol className="state__steps">
+                <li className="state__step">
+                  <span className="state__step-num">1</span>
+                  <span className="state__step-text">Add two or more starting points</span>
+                </li>
+                <li className="state__step">
+                  <span className="state__step-num">2</span>
+                  <span className="state__step-text">Choose a category and how you travel</span>
+                </li>
+                <li className="state__step">
+                  <span className="state__step-num">3</span>
+                  <span className="state__step-text">Compare spots ranked by fair travel time</span>
+                </li>
+              </ol>
             </div>
           )}
         </section>
