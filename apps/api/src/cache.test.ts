@@ -2,7 +2,9 @@ import type { SearchRequestBody } from "@meetup/core";
 import { describe, expect, it } from "vitest";
 import {
   MemoryCache,
+  buildAutocompleteCacheKey,
   buildGeocodeCacheKey,
+  buildPlaceCacheKey,
   buildReverseGeocodeCacheKey,
   buildSearchCacheKey,
   roundCoord,
@@ -23,6 +25,20 @@ describe("buildGeocodeCacheKey", () => {
   });
 });
 
+describe("buildAutocompleteCacheKey", () => {
+  it("normalises case and collapses internal whitespace", () => {
+    expect(buildAutocompleteCacheKey("  Kings   Cross ")).toBe(
+      buildAutocompleteCacheKey("kings cross"),
+    );
+  });
+
+  it("differs from the geocode namespace for the same query", () => {
+    expect(buildAutocompleteCacheKey("kings cross")).not.toBe(
+      buildGeocodeCacheKey("kings cross"),
+    );
+  });
+});
+
 describe("buildReverseGeocodeCacheKey", () => {
   it("rounds coordinates so nearby taps share a key", () => {
     expect(buildReverseGeocodeCacheKey(51.530812, -0.123881)).toBe(
@@ -34,6 +50,12 @@ describe("buildReverseGeocodeCacheKey", () => {
     expect(buildReverseGeocodeCacheKey(51.53, -0.12)).not.toBe(
       buildReverseGeocodeCacheKey(51.5, -0.11),
     );
+  });
+});
+
+describe("buildPlaceCacheKey", () => {
+  it("trims the place id", () => {
+    expect(buildPlaceCacheKey("  abc ")).toBe(buildPlaceCacheKey("abc"));
   });
 });
 

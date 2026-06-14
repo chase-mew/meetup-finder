@@ -113,6 +113,16 @@ export function buildGeocodeCacheKey(query: string): string {
   return `geo:v1:${query.trim().toLowerCase()}`;
 }
 
+/** Collapse internal whitespace so "kings  cross" and "kings cross" share a key. */
+export function buildAutocompleteCacheKey(query: string): string {
+  const normalised = query.trim().toLowerCase().replace(/\s+/g, " ");
+  return `ac:v1:${normalised}`;
+}
+
+export function buildPlaceCacheKey(placeId: string): string {
+  return `place:v1:${placeId.trim()}`;
+}
+
 /** Round coordinates so nearby taps share a reverse geocode cache entry. */
 export function buildReverseGeocodeCacheKey(lat: number, lng: number): string {
   return `revgeo:v1:${roundCoord(lat)},${roundCoord(lng)}`;

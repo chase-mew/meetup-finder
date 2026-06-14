@@ -13,8 +13,8 @@ Most "meet in the middle" tools compute a simple geographic midpoint. Meetup Fin
 This is a pnpm workspace.
 
 - `packages/core` Pure TypeScript scoring engine. Geometric median seed, fairness objectives (`min_total`, `min_max`, `min_variance`), Bayesian rating blend, and ranking. No network, fully unit tested.
-- `packages/providers` `PlacesProvider` and `TravelProvider` interfaces plus Google adapters (Geocoding, Places API New, Routes API transit matrix). Vendor specifics live only here.
-- `apps/api` Cloudflare Worker (Hono) exposing `POST /api/search`. Reads `GOOGLE_MAPS_API_KEY` from env. Runs locally via `wrangler dev`.
+- `packages/providers` `PlacesProvider`, `TravelProvider`, and `AutocompleteProvider` interfaces plus Google adapters (Geocoding, Places API New text search and autocomplete, Routes API transit matrix). Vendor specifics live only here.
+- `apps/api` Cloudflare Worker (Hono) exposing `POST /api/search`, `GET /api/geocode`, `GET /api/autocomplete`, and `GET /api/place`. Reads `GOOGLE_MAPS_API_KEY` from env. Runs locally via `wrangler dev`.
 - `apps/web` React + TypeScript + Vite front end.
 
 ## Getting started

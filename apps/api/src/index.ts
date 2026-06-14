@@ -4,7 +4,9 @@ import {
   createReporter,
 } from "@meetup/core";
 import {
+  type AutocompletePrediction,
   type GeocodeResult,
+  GoogleAutocompleteProvider,
   GoogleGeocodingProvider,
   GooglePlacesProvider,
   GoogleTravelProvider,
@@ -16,7 +18,9 @@ import {
   type AsyncCache,
   KvCache,
   MemoryCache,
+  buildAutocompleteCacheKey,
   buildGeocodeCacheKey,
+  buildPlaceCacheKey,
   buildReverseGeocodeCacheKey,
   buildSearchCacheKey,
 } from "./cache";
@@ -56,6 +60,8 @@ interface Variables {
 const PLACES_PHOTO_BASE = "https://places.googleapis.com/v1";
 const GEOCODE_TTL_SECONDS = 24 * 60 * 60;
 const SEARCH_TTL_SECONDS = 5 * 60;
+const AUTOCOMPLETE_TTL_SECONDS = 60 * 60;
+const PLACE_TTL_SECONDS = 24 * 60 * 60;
 
 // Fallback for local dev or when no KV namespace is bound.
 const memoryCache = new MemoryCache(700);
@@ -150,6 +156,7 @@ app.use("*", async (c, next) => {
 app.use("/api/search", rateLimit);
 app.use("/api/geocode", rateLimit);
 app.use("/api/reverse-geocode", rateLimit);
+app.use("/api/place", rateLimit);
 
 // Central error handling: classify the error, log it with context, report it to
 // the tracker, then return a structured body the client can branch on.
@@ -200,6 +207,52 @@ app.get("/api/geocode", async (c) => {
   const provider = new GoogleGeocodingProvider({ apiKey });
   const result = await provider.geocode(query);
   await cache.set(cacheKey, result, GEOCODE_TTL_SECONDS);
+  if (!result) {
+    throw new NotFoundError("No match found");
+  }
+  return c.json(result);
+});
+
+app.get("/api/autocomplete", async (c) => {
+  const apiKey = requireApiKey(c.env);
+  const query = c.req.query("q")?.trim();
+  if (!query) {
+    return c.json({ predictions: [] });
+  }
+
+  const cache = cacheFor(c.env);
+  const cacheKey = buildAutocompleteCacheKey(query);
+  const cached = await cache.get<AutocompletePrediction[]>(cacheKey);
+  if (cached !== undefined) {
+    return c.json({ predictions: cached });
+  }
+
+  const provider = new GoogleAutocompleteProvider({ apiKey });
+  const predictions = await provider.autocomplete(query);
+  await cache.set(cacheKey, predictions, AUTOCOMPLETE_TTL_SECONDS);
+  return c.json({ predictions });
+});
+
+app.get("/api/place", async (c) => {
+  const apiKey = requireApiKey(c.env);
+  const placeId = c.req.query("placeId")?.trim();
+  if (!placeId) {
+    throw new ValidationError("Query parameter placeId is required");
+  }
+
+  const cache = cacheFor(c.env);
+  const cacheKey = buildPlaceCacheKey(placeId);
+  const cached = await cache.get<GeocodeResult | null>(cacheKey);
+  if (cached !== undefined) {
+    if (!cached) {
+      throw new NotFoundError("No match found");
+    }
+    return c.json(cached);
+  }
+
+  const provider = new GoogleAutocompleteProvider({ apiKey });
+  const result = await provider.resolve(placeId);
+  await cache.set(cacheKey, result, PLACE_TTL_SECONDS);
   if (!result) {
     throw new NotFoundError("No match found");
   }

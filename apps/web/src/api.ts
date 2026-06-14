@@ -5,6 +5,13 @@ export interface GeocodeResponse {
   formattedAddress: string;
 }
 
+export interface AutocompletePrediction {
+  placeId: string;
+  description: string;
+  mainText?: string;
+  secondaryText?: string;
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 /** Stable error codes mirrored from the API, used to pick a client message. */
@@ -73,6 +80,34 @@ async function requestJson(input: string, init?: RequestInit): Promise<Response>
 
 export async function geocode(query: string): Promise<GeocodeResponse | null> {
   const response = await requestJson(`${API_BASE}/api/geocode?q=${encodeURIComponent(query)}`);
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    const { message, code } = await parseError(response);
+    throw new ApiClientError(message, response.status, code);
+  }
+  return (await response.json()) as GeocodeResponse;
+}
+
+export async function autocomplete(
+  query: string,
+  signal?: AbortSignal,
+): Promise<AutocompletePrediction[]> {
+  // Keep a bare fetch so AbortController cancellations surface as an AbortError.
+  const response = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(query)}`, {
+    signal,
+  });
+  if (!response.ok) {
+    const { message, code } = await parseError(response);
+    throw new ApiClientError(message, response.status, code);
+  }
+  const body = (await response.json()) as { predictions?: AutocompletePrediction[] };
+  return body.predictions ?? [];
+}
+
+export async function placeDetails(placeId: string): Promise<GeocodeResponse | null> {
+  const response = await requestJson(`${API_BASE}/api/place?placeId=${encodeURIComponent(placeId)}`);
   if (response.status === 404) {
     return null;
   }
