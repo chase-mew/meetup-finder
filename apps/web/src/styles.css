@@ -445,9 +445,77 @@ select:focus {
 }
 
 .form-error {
-  color: var(--bad);
-  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  font-size: 13px;
+}
+
+.form-error__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-error__detail {
+  color: var(--ink);
+}
+
+.form-error__hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form-error--request {
+  color: var(--bad);
+  border-color: rgba(185, 28, 28, 0.25);
+  background: rgba(185, 28, 28, 0.06);
+}
+
+.form-error--server,
+.form-error--network {
+  color: var(--warn);
+  border-color: rgba(180, 83, 9, 0.25);
+  background: rgba(180, 83, 9, 0.07);
+}
+
+/* Notices (results banners) ---------------------------------------------- */
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.notice__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notice__body {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.notice--warning {
+  border-color: rgba(180, 83, 9, 0.28);
+  background: rgba(180, 83, 9, 0.08);
+}
+
+.notice--warning .notice__title {
+  color: var(--warn);
+}
+
+.notice--empty {
+  border-style: dashed;
 }
 
 /* Segmented control ------------------------------------------------------- */

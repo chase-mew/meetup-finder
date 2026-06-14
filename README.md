@@ -90,7 +90,7 @@ The Worker caches geocode lookups and search results. Keys for searches round ea
 
 ## Rate limiting and abuse protection
 
-Each search fans out into several paid Google calls, so the public Worker throttles its paid endpoints (`POST /api/search` and `GET /api/geocode`) to keep cost bounded. Throttling is a per client token bucket keyed by `cf-connecting-ip`, with an optional global daily ceiling as a backstop. When a client exceeds its limit the Worker replies with HTTP 429, a `Retry-After` header, and a friendly `error` message that the web app surfaces.
+Each search fans out into several paid Google calls, so the public Worker throttles its paid endpoints (`POST /api/search`, `GET /api/geocode`, and `GET /api/reverse-geocode`) to keep cost bounded. Throttling is a per client token bucket keyed by `cf-connecting-ip`, with an optional global daily ceiling as a backstop. When a client exceeds its limit the Worker replies with HTTP 429, a `Retry-After` header, and a friendly `error` message that the web app surfaces.
 
 Limit state lives in the `CACHE` KV namespace when one is bound, so it is shared across isolates. Without KV it falls back to an in memory store per isolate. KV is eventually consistent, so the bucket is a best effort guardrail aimed at bounding cost rather than enforcing an exact quota.
 
@@ -100,6 +100,15 @@ Everything is configurable through environment variables in `apps/api/wrangler.t
 - `RATE_LIMIT_RPM` sustained requests per minute per client. Default `30`.
 - `RATE_LIMIT_BURST` bucket capacity, the largest burst a client can make at once. Default `15`.
 - `RATE_LIMIT_DAILY_MAX` global daily request ceiling across all clients. `0` disables it (the default).
+
+## Observability
+
+The Worker emits one JSON log line per stage with timing and, on failure, the upstream error detail. API keys are scrubbed from logs and never leak. Errors are classified so clients can tell apart a validation problem (`400 validation_error`), a missing key (`500 config_error`), and an upstream failure (`502 provider_error`); a search that succeeds with nothing nearby returns `200` with an empty `venues` array. When a person cannot reach any returned venue, the response lists them in `unreachableOrigins` and the UI names who is stuck and suggests a different mode or wider area.
+
+Error reporting is optional and goes to Sentry when a DSN is set, otherwise it is a silent no op.
+
+- Worker: set `SENTRY_DSN` (and optionally `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `LOG_LEVEL`). For local dev add them to `apps/api/.dev.vars`; for deploys use `npx wrangler secret put SENTRY_DSN`.
+- Web app: set `VITE_SENTRY_DSN` (and optionally `VITE_RELEASE`) at build time. See `apps/web/.env.example`.
 
 ## Deployment
 

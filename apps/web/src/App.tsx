@@ -9,7 +9,8 @@ import {
   type VenueCategory,
 } from "@meetup/core";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { geocode, reverseGeocode, search } from "./api";
+import { ApiClientError, geocode, reverseGeocode, search } from "./api";
+import { reportError } from "./reporting";
 import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
 import { LoadingResults } from "./components/LoadingResults";
@@ -48,6 +49,23 @@ function buildTransitPreferences(
     preferences.routingPreference = routing;
   }
   return Object.keys(preferences).length > 0 ? preferences : undefined;
+}
+
+/** A search failure, tagged so the UI can phrase server vs request problems. */
+interface SearchError {
+  message: string;
+  kind: "server" | "request" | "network";
+}
+
+function toSearchError(error: unknown): SearchError {
+  if (error instanceof ApiClientError) {
+    if (error.code === "network_error") {
+      return { message: error.message, kind: "network" };
+    }
+    return { message: error.message, kind: error.isServerError ? "server" : "request" };
+  }
+  const message = error instanceof Error ? error.message : "Search failed";
+  return { message, kind: "server" };
 }
 
 function newPerson(): Person {
@@ -148,7 +166,7 @@ export function App() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SearchError | null>(null);
   const [result, setResult] = useState<SearchResponseBody | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -261,7 +279,10 @@ export function App() {
     },
   ) {
     if (origins.length < 2) {
-      setError("Enter at least two valid locations to find a meeting spot.");
+      setError({
+        message: "Enter at least two valid locations to find a meeting spot.",
+        kind: "request",
+      });
       return;
     }
 
@@ -300,8 +321,16 @@ export function App() {
       writeSearchStateToUrl(urlState);
       setShareUrl(buildShareUrl(urlState));
     } catch (searchError) {
-      const message = searchError instanceof Error ? searchError.message : "Search failed";
-      setError(message);
+      const parsed = toSearchError(searchError);
+      // Only server and network faults are worth reporting; a 400 is the
+      // client's own malformed request and would only add noise.
+      if (parsed.kind !== "request") {
+        reportError(searchError, {
+          stage: "search",
+          tags: { mode: options.mode, objective: options.objective },
+        });
+      }
+      setError(parsed);
       setResult(null);
     } finally {
       setLoading(false);
@@ -488,7 +517,21 @@ export function App() {
           >
             {loading ? "Finding the fairest spot…" : "Find meeting spots"}
           </button>
-          {error ? <p className="form-error">{error}</p> : null}
+          {error ? (
+            <div className={"form-error form-error--" + error.kind} role="alert">
+              <strong className="form-error__title">
+                {error.kind === "server"
+                  ? "Something went wrong on our side"
+                  : error.kind === "network"
+                    ? "Could not reach the server"
+                    : "Check your details"}
+              </strong>
+              <span className="form-error__detail">{error.message}</span>
+              {error.kind !== "request" ? (
+                <span className="form-error__hint">Please try again in a moment.</span>
+              ) : null}
+            </div>
+          ) : null}
         </aside>
 
         <section className="content">

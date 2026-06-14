@@ -67,12 +67,22 @@ export function ResultsList({ result, selectedId, onSelect, shareUrl }: ResultsL
   if (result.venues.length === 0) {
     return (
       <div className="results">
-        <p className="empty">
-          No venues found near the meeting point. Try a wider category or a larger search radius.
-        </p>
+        <div className="notice notice--empty" role="status">
+          <strong className="notice__title">No venues found near the meeting point</strong>
+          <p className="notice__body">
+            Try a different category, switch the travel mode, or widen the search area.
+          </p>
+        </div>
       </div>
     );
   }
+
+  const labelById = new Map(
+    result.origins.map((origin, index) => [origin.id, origin.label ?? `Person ${index + 1}`]),
+  );
+  const unreachableNames = result.unreachableOrigins
+    .map((id) => labelById.get(id) ?? id)
+    .filter((name): name is string => Boolean(name));
 
   return (
     <div className="results">
@@ -83,6 +93,20 @@ export function ResultsList({ result, selectedId, onSelect, shareUrl }: ResultsL
         </div>
         {shareUrl ? <CopyLinkButton shareUrl={shareUrl} /> : null}
       </div>
+
+      {unreachableNames.length > 0 ? (
+        <div className="notice notice--warning" role="alert">
+          <strong className="notice__title">
+            {unreachableNames.length === 1
+              ? `${unreachableNames[0]} can't reach any of these spots`
+              : `${unreachableNames.join(", ")} can't reach any of these spots`}{" "}
+            by {MODE_LABELS[result.mode]}.
+          </strong>
+          <p className="notice__body">
+            Try a different travel mode or widen the search area so everyone has a route.
+          </p>
+        </div>
+      ) : null}
       <div className="results__list">
         {result.venues.map((venue, index) => (
           <VenueCard

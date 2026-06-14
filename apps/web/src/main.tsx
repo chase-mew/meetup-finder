@@ -1,8 +1,11 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { installGlobalErrorReporting } from "./reporting";
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
+
+installGlobalErrorReporting();
 
 const container = document.getElementById("root");
 if (!container) {
