@@ -62,6 +62,24 @@ describe("parsePlace", () => {
       { open: { day: 0, hour: 0, minute: 0 } },
     ]);
   });
+
+  it("drops opening-hours points with out of range day, hour, or minute", () => {
+    const place = parsePlace({
+      id: "c",
+      location: { latitude: 1, longitude: 2 },
+      regularOpeningHours: {
+        periods: [
+          { open: { day: 9, hour: 8, minute: 0 }, close: { day: 1, hour: 17, minute: 0 } },
+          { open: { day: 1, hour: 30, minute: 0 }, close: { day: 1, hour: 17, minute: 0 } },
+          { open: { day: 1, hour: 8, minute: 75 }, close: { day: 1, hour: 17, minute: 0 } },
+          { open: { day: 2, hour: 9, minute: 0 }, close: { day: 2, hour: 17, minute: 0 } },
+        ],
+      },
+    });
+    expect(place?.regularOpeningHours?.periods).toEqual([
+      { open: { day: 2, hour: 9, minute: 0 }, close: { day: 2, hour: 17, minute: 0 } },
+    ]);
+  });
 });
 
 describe("boundingRectangle", () => {

@@ -54,6 +54,22 @@ describe("buildSearchCacheKey", () => {
       buildSearchCacheKey({ ...base, objective: "min_total" }),
     );
   });
+
+  it("changes with the meet time and the weekday for meal searches", () => {
+    const dinner: SearchRequestBody = { ...base, category: "dinner" };
+    const sunday = new Date("2026-06-14T12:00:00Z");
+    const monday = new Date("2026-06-15T12:00:00Z");
+    expect(buildSearchCacheKey(dinner, sunday)).not.toBe(buildSearchCacheKey(dinner, monday));
+    expect(buildSearchCacheKey(dinner, sunday)).not.toBe(
+      buildSearchCacheKey({ ...dinner, meetTime: "20:00" }, sunday),
+    );
+  });
+
+  it("ignores the weekday for non meal categories", () => {
+    const sunday = new Date("2026-06-14T12:00:00Z");
+    const monday = new Date("2026-06-15T12:00:00Z");
+    expect(buildSearchCacheKey(base, sunday)).toBe(buildSearchCacheKey(base, monday));
+  });
 });
 
 describe("MemoryCache", () => {

@@ -86,13 +86,21 @@ function mapPriceLevel(value: string | undefined): number | undefined {
   return PRICE_LEVELS[value];
 }
 
+function isIntInRange(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
 function parsePoint(
   point: PlacesApiPeriodPoint | undefined,
 ): { day: number; hour: number; minute: number } | null {
-  if (!point || typeof point.day !== "number" || typeof point.hour !== "number") {
+  if (!point || !isIntInRange(point.day, 0, 6) || !isIntInRange(point.hour, 0, 23)) {
     return null;
   }
-  return { day: point.day, hour: point.hour, minute: point.minute ?? 0 };
+  const minute = point.minute ?? 0;
+  if (!isIntInRange(minute, 0, 59)) {
+    return null;
+  }
+  return { day: point.day, hour: point.hour, minute };
 }
 
 function parseOpeningHours(
