@@ -109,13 +109,15 @@ export class GooglePlacesProvider implements PlacesProvider {
 
   async search(request: PlacesSearchRequest): Promise<Place[]> {
     const fetchImpl = resolveFetch(this.options);
-    const maxPages = Math.min(Math.max(request.maxPages ?? MAX_PAGES, 1), MAX_PAGES);
+    const requestedPages = Number.isFinite(request.maxPages)
+      ? Math.trunc(request.maxPages as number)
+      : MAX_PAGES;
+    const maxPages = Math.min(Math.max(requestedPages, 1), MAX_PAGES);
 
     const baseBody: Record<string, unknown> = {
       textQuery: categoryToTextQuery(request.category),
       pageSize: 20,
       languageCode: "en",
-      regionCode: "GB",
       locationRestriction: {
         rectangle: boundingRectangle(request.center, request.radiusMeters),
       },

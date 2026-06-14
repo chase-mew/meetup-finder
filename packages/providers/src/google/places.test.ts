@@ -112,6 +112,27 @@ describe("GooglePlacesProvider", () => {
     expect(places.map((p) => p.id).sort()).toEqual(["a", "b"]);
   });
 
+  it("defaults to the maximum pages when maxPages is missing or invalid", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          places: [{ id: "x", location: { latitude: 51.5, longitude: -0.1 }, primaryType: "cafe" }],
+          nextPageToken: "always-more",
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = new GooglePlacesProvider({ apiKey: "k", fetchImpl });
+    await provider.search({
+      center: { lat: 51.5, lng: -0.1 },
+      radiusMeters: 1500,
+      category: "cafe",
+      maxPages: Number.NaN,
+    });
+    // NaN must not collapse to zero fetches; it falls back to the page cap of 3.
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
   it("stops at the requested page limit", async () => {
     const fetchImpl = vi.fn(async () =>
       new Response(
