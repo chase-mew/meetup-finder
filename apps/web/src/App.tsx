@@ -711,6 +711,7 @@ export function App() {
               seed={result?.seed}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              theme={theme}
             />
           ) : null}
 
