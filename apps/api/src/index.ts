@@ -167,7 +167,7 @@ function clampInt(value: string | undefined, fallback: number, min: number, max:
   return Math.min(max, Math.max(min, parsed));
 }
 
-function parseCoord(value: string | undefined, max: number): number | null {
+export function parseCoord(value: string | undefined, max: number): number | null {
   if (value === undefined || value.trim() === "") {
     return null;
   }

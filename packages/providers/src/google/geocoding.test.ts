@@ -81,6 +81,8 @@ describe("GoogleGeocodingProvider", () => {
     const provider = new GoogleGeocodingProvider({ apiKey: "k", fetchImpl });
     expect(await provider.reverseGeocode({ lat: 200, lng: 0 })).toBeNull();
     expect(await provider.reverseGeocode({ lat: Number.NaN, lng: 0 })).toBeNull();
+    expect(await provider.reverseGeocode({ lat: 0, lng: 200 })).toBeNull();
+    expect(await provider.reverseGeocode({ lat: 0, lng: Number.NaN })).toBeNull();
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
