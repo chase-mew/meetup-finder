@@ -1,16 +1,44 @@
 import { describe, expect, it } from "vitest";
 import {
-  categoryToIncludedTypes,
+  categoryToTextQuery,
+  matchesCategoryPrimaryType,
   parseDurationSeconds,
   travelModeToGoogle,
 } from "./shared";
 
-describe("categoryToIncludedTypes", () => {
-  it("maps each category to Places types", () => {
-    expect(categoryToIncludedTypes("cafe")).toContain("cafe");
-    expect(categoryToIncludedTypes("lunch")).toEqual(["restaurant"]);
-    expect(categoryToIncludedTypes("dinner")).toEqual(["restaurant"]);
-    expect(categoryToIncludedTypes("pub")).toContain("pub");
+describe("categoryToTextQuery", () => {
+  it("maps each category to a text query", () => {
+    expect(categoryToTextQuery("cafe")).toBe("cafe");
+    expect(categoryToTextQuery("lunch")).toContain("restaurant");
+    expect(categoryToTextQuery("dinner")).toContain("restaurant");
+    expect(categoryToTextQuery("pub")).toBe("pub");
+  });
+});
+
+describe("matchesCategoryPrimaryType", () => {
+  it("accepts cafes and coffee shops for the cafe category", () => {
+    expect(matchesCategoryPrimaryType("cafe", "cafe")).toBe(true);
+    expect(matchesCategoryPrimaryType("cafe", "coffee_shop")).toBe(true);
+    expect(matchesCategoryPrimaryType("cafe", "bar")).toBe(false);
+  });
+
+  it("accepts restaurants and their subtypes for lunch and dinner", () => {
+    expect(matchesCategoryPrimaryType("lunch", "restaurant")).toBe(true);
+    expect(matchesCategoryPrimaryType("dinner", "italian_restaurant")).toBe(true);
+    expect(matchesCategoryPrimaryType("dinner", "lodging")).toBe(false);
+  });
+
+  it("accepts bars and pubs for the pub category", () => {
+    expect(matchesCategoryPrimaryType("pub", "pub")).toBe(true);
+    expect(matchesCategoryPrimaryType("pub", "bar")).toBe(true);
+    expect(matchesCategoryPrimaryType("pub", "wine_bar")).toBe(true);
+  });
+
+  it("rejects hotels and cinemas that merely contain a bar", () => {
+    // A hotel's primary type is lodging even if it has a bar secondary type.
+    expect(matchesCategoryPrimaryType("pub", "lodging")).toBe(false);
+    expect(matchesCategoryPrimaryType("pub", "movie_theater")).toBe(false);
+    expect(matchesCategoryPrimaryType("pub", undefined)).toBe(false);
   });
 });
 

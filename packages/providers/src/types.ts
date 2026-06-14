@@ -26,7 +26,8 @@ export interface PlacesSearchRequest {
   center: LatLng;
   radiusMeters: number;
   category: VenueCategory;
-  maxResults?: number;
+  /** How many pages of 20 results to fetch (1 to 3). Defaults to 3. */
+  maxPages?: number;
   openNow?: boolean;
 }
 

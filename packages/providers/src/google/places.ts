@@ -1,13 +1,15 @@
+import type { LatLng } from "@meetup/core";
 import type { PlacesProvider } from "../interfaces";
 import type { Place, PlacesSearchRequest } from "../types";
 import {
   type GoogleProviderOptions,
-  categoryToIncludedTypes,
+  categoryToTextQuery,
+  matchesCategoryPrimaryType,
   readError,
   resolveFetch,
 } from "./shared";
 
-const SEARCH_NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby";
+const SEARCH_TEXT_URL = "https://places.googleapis.com/v1/places:searchText";
 
 const SEARCH_FIELD_MASK = [
   "places.id",
@@ -20,9 +22,14 @@ const SEARCH_FIELD_MASK = [
   "places.googleMapsUri",
   "places.websiteUri",
   "places.currentOpeningHours.openNow",
+  "places.primaryType",
   "places.primaryTypeDisplayName",
   "places.photos",
+  "nextPageToken",
 ].join(",");
+
+const MAX_PAGES = 3;
+const METERS_PER_DEGREE_LAT = 111_320;
 
 interface PlacesApiPlace {
   id?: string;
@@ -35,12 +42,14 @@ interface PlacesApiPlace {
   googleMapsUri?: string;
   websiteUri?: string;
   currentOpeningHours?: { openNow?: boolean };
+  primaryType?: string;
   primaryTypeDisplayName?: { text?: string };
   photos?: Array<{ name?: string }>;
 }
 
-interface SearchNearbyResponse {
+interface SearchTextResponse {
   places?: PlacesApiPlace[];
+  nextPageToken?: string;
 }
 
 const PRICE_LEVELS: Record<string, number> = {
@@ -80,17 +89,15 @@ export function parsePlace(raw: PlacesApiPlace): Place | null {
   };
 }
 
-export function parseSearchResponse(
-  body: SearchNearbyResponse,
-  openNowOnly: boolean,
-): Place[] {
-  const places = (body.places ?? [])
-    .map(parsePlace)
-    .filter((p): p is Place => p !== null);
-  if (!openNowOnly) {
-    return places;
-  }
-  return places.filter((p) => p.openNow !== false);
+/** A latitude/longitude box approximately `radiusMeters` around the centre. */
+export function boundingRectangle(center: LatLng, radiusMeters: number) {
+  const latDelta = radiusMeters / METERS_PER_DEGREE_LAT;
+  const cosLat = Math.cos((center.lat * Math.PI) / 180);
+  const lngDelta = radiusMeters / (METERS_PER_DEGREE_LAT * Math.max(0.01, Math.abs(cosLat)));
+  return {
+    low: { latitude: center.lat - latDelta, longitude: center.lng - lngDelta },
+    high: { latitude: center.lat + latDelta, longitude: center.lng + lngDelta },
+  };
 }
 
 export class GooglePlacesProvider implements PlacesProvider {
@@ -102,37 +109,61 @@ export class GooglePlacesProvider implements PlacesProvider {
 
   async search(request: PlacesSearchRequest): Promise<Place[]> {
     const fetchImpl = resolveFetch(this.options);
-    const maxResults = Math.min(Math.max(request.maxResults ?? 20, 1), 20);
+    const requestedPages = Number.isFinite(request.maxPages)
+      ? Math.trunc(request.maxPages as number)
+      : MAX_PAGES;
+    const maxPages = Math.min(Math.max(requestedPages, 1), MAX_PAGES);
 
-    const requestBody = {
-      includedTypes: categoryToIncludedTypes(request.category),
-      maxResultCount: maxResults,
-      rankPreference: "POPULARITY",
+    const baseBody: Record<string, unknown> = {
+      textQuery: categoryToTextQuery(request.category),
+      pageSize: 20,
+      languageCode: "en",
       locationRestriction: {
-        circle: {
-          center: {
-            latitude: request.center.lat,
-            longitude: request.center.lng,
-          },
-          radius: request.radiusMeters,
-        },
+        rectangle: boundingRectangle(request.center, request.radiusMeters),
       },
     };
-
-    const response = await fetchImpl(SEARCH_NEARBY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": this.options.apiKey,
-        "X-Goog-FieldMask": SEARCH_FIELD_MASK,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      throw new Error(await readError(response));
+    if (request.openNow) {
+      baseBody.openNow = true;
     }
-    const body = (await response.json()) as SearchNearbyResponse;
-    return parseSearchResponse(body, request.openNow === true);
+
+    const collected: Place[] = [];
+    const seen = new Set<string>();
+    let pageToken: string | undefined;
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const body = pageToken ? { ...baseBody, pageToken } : baseBody;
+      const response = await fetchImpl(SEARCH_TEXT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": this.options.apiKey,
+          "X-Goog-FieldMask": SEARCH_FIELD_MASK,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+      const data = (await response.json()) as SearchTextResponse;
+
+      for (const raw of data.places ?? []) {
+        if (!matchesCategoryPrimaryType(request.category, raw.primaryType)) {
+          continue;
+        }
+        const place = parsePlace(raw);
+        if (place && !seen.has(place.id)) {
+          seen.add(place.id);
+          collected.push(place);
+        }
+      }
+
+      pageToken = data.nextPageToken;
+      if (!pageToken) {
+        break;
+      }
+    }
+
+    return collected;
   }
 }

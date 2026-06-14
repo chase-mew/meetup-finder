@@ -5,9 +5,9 @@ import {
   type ResultVenue,
   type SearchRequestBody,
   type SearchResponseBody,
+  bayesianRating,
   haversineMeters,
   scoreVenues,
-  selectNearest,
   weightedGeometricMedian,
 } from "@meetup/core";
 import type { Place, PlacesProvider, TravelProvider } from "@meetup/providers";
@@ -22,14 +22,14 @@ export interface SearchConfig {
   candidateLimit: number;
   /** How many results to return. */
   defaultLimit: number;
-  /** How many venues to request from the places provider. */
-  searchResultCount: number;
+  /** How many pages of places (20 each) to gather before pruning. */
+  searchPages: number;
 }
 
 export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
-  candidateLimit: 8,
-  defaultLimit: 5,
-  searchResultCount: 20,
+  candidateLimit: 18,
+  defaultLimit: 8,
+  searchPages: 3,
 };
 
 const DEFAULT_OBJECTIVE: Objective = "min_max";
@@ -47,6 +47,41 @@ export function deriveSearchRadius(
   }
   const radius = maxDistance * 0.35;
   return Math.min(6_000, Math.max(1_200, Math.round(radius)));
+}
+
+/**
+ * Choose which venues to send to the (more expensive) travel matrix.
+ *
+ * Rather than picking the geographically nearest, which ignores quality, we
+ * rank the gathered pool by a blend of proximity to the meeting point and a
+ * Bayesian rating, so the scorer receives the most promising candidates. This
+ * is a cheap pre-filter; the final ranking still uses real travel times.
+ */
+export function preselectCandidates(
+  seed: { lat: number; lng: number },
+  places: Place[],
+  limit: number,
+): Place[] {
+  if (places.length <= limit) {
+    return places;
+  }
+
+  const distances = places.map((place) => haversineMeters(seed, place.location));
+  const ratings = places.map((place) => bayesianRating(place.rating, place.ratingCount));
+  const maxDistance = Math.max(...distances, 1);
+  const minRating = Math.min(...ratings);
+  const maxRating = Math.max(...ratings);
+  const ratingSpan = maxRating - minRating;
+
+  return places
+    .map((place, index) => {
+      const proximity = 1 - distances[index]! / maxDistance;
+      const ratingScore = ratingSpan > 0 ? (ratings[index]! - minRating) / ratingSpan : 0.5;
+      return { place, preScore: 0.5 * proximity + 0.5 * ratingScore };
+    })
+    .sort((a, b) => b.preScore - a.preScore)
+    .slice(0, limit)
+    .map((entry) => entry.place);
 }
 
 /**
@@ -75,16 +110,11 @@ export async function runSearch(
     center: seed,
     radiusMeters: searchRadiusMeters,
     category: body.category,
-    maxResults: config.searchResultCount,
+    maxPages: config.searchPages,
     openNow: body.openNow,
   });
 
-  const candidates = selectNearest(
-    seed,
-    found,
-    config.candidateLimit,
-    (place) => place.location,
-  );
+  const candidates = preselectCandidates(seed, found, config.candidateLimit);
 
   const objective = body.objective ?? DEFAULT_OBJECTIVE;
 

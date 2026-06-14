@@ -16,11 +16,12 @@ export type {
 
 export {
   type GoogleProviderOptions,
-  categoryToIncludedTypes,
+  categoryToTextQuery,
+  matchesCategoryPrimaryType,
   travelModeToGoogle,
   parseDurationSeconds,
 } from "./google/shared";
 
 export { GoogleGeocodingProvider, parseGeocodeResponse } from "./google/geocoding";
-export { GooglePlacesProvider, parsePlace, parseSearchResponse } from "./google/places";
+export { GooglePlacesProvider, parsePlace, boundingRectangle } from "./google/places";
 export { GoogleTravelProvider, parseMatrixElements } from "./google/routes";
