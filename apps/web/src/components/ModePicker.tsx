@@ -1,7 +1,7 @@
 import type { TravelMode } from "@meetup/core";
 
 const MODES: Array<{ value: TravelMode; label: string }> = [
-  { value: "transit", label: "Transit" },
+  { value: "transit", label: "Public transport" },
   { value: "walking", label: "Walking" },
   { value: "driving", label: "Driving" },
 ];
@@ -13,7 +13,7 @@ interface ModePickerProps {
 
 export function ModePicker({ value, onChange }: ModePickerProps) {
   return (
-    <div className="segmented" role="group" aria-label="Travel mode">
+    <div className="segmented segmented--modes" role="group" aria-label="Travel mode">
       {MODES.map((mode) => (
         <button
           type="button"

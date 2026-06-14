@@ -94,3 +94,21 @@ export function PeopleIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+/** Arrows pushing outward, for "expand the map". */
+export function ExpandIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+    </svg>
+  );
+}
+
+/** Arrows pulling inward, for "collapse the map". */
+export function CollapseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5" />
+    </svg>
+  );
+}

@@ -165,3 +165,26 @@ Variable:
 - `VITE_API_BASE_URL` the deployed Worker URL.
 
 The Pages project is created automatically on the first deploy if it does not already exist.
+
+## Contributing
+
+Contributions are welcome. To get set up:
+
+1. Fork and clone the repository.
+2. Install dependencies with `pnpm install` (this repo uses pnpm; see `package.json` for the pinned version).
+3. Create a branch for your change.
+4. Make your change, then make sure the suite passes:
+   - `pnpm test` runs every package test suite offline, with no API calls.
+   - `pnpm typecheck` type checks every package.
+   - `pnpm build` builds every package.
+5. Open a pull request describing what you changed and why.
+
+A few notes:
+
+- Keep vendor specifics (such as Google adapters) inside `packages/providers`. The core scoring engine in `packages/core` stays pure and free of network calls.
+- Add or update tests alongside your change where it makes sense.
+- The live integration and smoke tests need a Google key and cost a small amount, so they stay opt in and are not required for a pull request.
+
+## License
+
+This project is licensed under the MIT License. See [`LICENSE`](LICENSE) for details.

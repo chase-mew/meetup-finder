@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "Find the fairest place to meet by real public transport travel time blended with venue rating.",
+  "license": "MIT",
+  "author": "Chase Manning",
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "engines": {

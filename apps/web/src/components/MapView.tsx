@@ -1,6 +1,8 @@
 import type { LatLng, ResultVenue } from "@meetup/core";
 import L from "leaflet";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { venuePopupHtml } from "../venuePopup";
+import { CollapseIcon, ExpandIcon } from "./icons";
 
 export interface MapOrigin {
   id: string;
@@ -22,8 +24,25 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const venueMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const boundsRef = useRef<Array<[number, number]>>([]);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+
+  const [expanded, setExpanded] = useState(false);
+
+  const fitToBounds = useCallback(() => {
+    const map = mapRef.current;
+    const bounds = boundsRef.current;
+    if (!map || bounds.length === 0) {
+      return;
+    }
+    if (bounds.length === 1) {
+      map.setView(bounds[0]!, 14);
+    } else {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    }
+  }, []);
 
   useEffect(() => {
     if (mapRef.current || !containerRef.current) {
@@ -41,6 +60,7 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
+      venueMarkersRef.current.clear();
     };
   }, []);
 
@@ -51,6 +71,7 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
       return;
     }
     layer.clearLayers();
+    venueMarkersRef.current.clear();
     const bounds: Array<[number, number]> = [];
 
     origins.forEach((origin, index) => {
@@ -91,18 +112,26 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
         }),
         zIndexOffset: isSelected ? 1000 : 0,
       });
-      marker.bindTooltip(venue.name);
+      marker.bindPopup(venuePopupHtml(venue, index + 1), {
+        className: "map-popup-shell",
+        minWidth: 200,
+        maxWidth: 264,
+        autoPanPadding: [24, 24],
+      });
       marker.on("click", () => onSelectRef.current(venue.id));
       marker.addTo(layer);
+      venueMarkersRef.current.set(venue.id, marker);
       bounds.push([venue.location.lat, venue.location.lng]);
     });
 
-    if (bounds.length === 1) {
-      map.setView(bounds[0]!, 14);
-    } else if (bounds.length > 1) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    }
+    boundsRef.current = bounds;
   }, [origins, venues, seed, selectedId]);
+
+  // Frame the markers when the underlying points change, but not on a mere
+  // selection change, which should highlight without zooming the whole map out.
+  useEffect(() => {
+    fitToBounds();
+  }, [origins, venues, seed, fitToBounds]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -113,7 +142,52 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
     if (venue) {
       map.panTo([venue.location.lat, venue.location.lng]);
     }
+    venueMarkersRef.current.get(selectedId)?.openPopup();
   }, [selectedId, venues]);
 
-  return <div className="map" ref={containerRef} />;
+  // Resizing the container leaves Leaflet showing grey tiles until it remeasures,
+  // so invalidate the size (and reframe) whenever the expanded state flips.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (expanded) {
+      document.body.classList.add("is-map-expanded");
+    }
+    const raf = requestAnimationFrame(() => {
+      map?.invalidateSize();
+      fitToBounds();
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.body.classList.remove("is-map-expanded");
+    };
+  }, [expanded, fitToBounds]);
+
+  useEffect(() => {
+    if (!expanded) {
+      return;
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setExpanded(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [expanded]);
+
+  return (
+    <div className={"map-shell" + (expanded ? " map-shell--expanded" : "")}>
+      <div className="map" ref={containerRef} />
+      <button
+        type="button"
+        className="map__toggle"
+        onClick={() => setExpanded((value) => !value)}
+        aria-pressed={expanded}
+        aria-label={expanded ? "Collapse map" : "Expand map"}
+        title={expanded ? "Collapse map" : "Expand map"}
+      >
+        {expanded ? <CollapseIcon /> : <ExpandIcon />}
+      </button>
+    </div>
+  );
 }
