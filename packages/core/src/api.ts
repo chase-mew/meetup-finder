@@ -2,6 +2,7 @@ import type {
   LatLng,
   Objective,
   Origin,
+  ScoreWeights,
   TransitPreferences,
   TravelMode,
   VenueCategory,
@@ -56,6 +57,10 @@ export interface ResultVenue {
   objectiveCostSeconds: number;
   totalSeconds: number;
   maxSeconds: number;
+  /** Travel cost normalised across the results, 0 best, 1 worst. */
+  normalizedTravel: number;
+  /** Rating normalised to 0..1, 1 best. */
+  normalizedRating: number;
   legs: ResultLeg[];
 }
 
@@ -66,7 +71,15 @@ export interface SearchResponseBody {
   category: VenueCategory;
   mode: TravelMode;
   objective: Objective;
+  /** Normalised travel and rating weights actually used to rank, summing to 1. */
+  weights: ScoreWeights;
   /** Radius used for the venue search, in metres. */
   searchRadiusMeters: number;
   venues: ResultVenue[];
+  /**
+   * Ids of origins that no returned venue can reach by the chosen mode. Lets
+   * the client call out exactly who is stuck rather than only flagging venues.
+   * Empty when everyone can reach at least one venue.
+   */
+  unreachableOrigins: string[];
 }

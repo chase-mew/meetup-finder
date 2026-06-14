@@ -8,15 +8,19 @@ import {
   type SearchResponseBody,
   bayesianRating,
   haversineMeters,
+  normalizeWeights,
   scoreVenues,
   weightedGeometricMedian,
 } from "@meetup/core";
 import type { Place, PlacesProvider, TravelProvider } from "@meetup/providers";
 import { type AreaFinderConfig, DEFAULT_AREA_CONFIG, findMeetingAreas } from "./areas";
+import { type Logger, createLogger, timed } from "./logger";
 
 export interface SearchDeps {
   places: PlacesProvider;
   travel: TravelProvider;
+  /** Structured logger for stage timing and errors. Defaults to a silent one. */
+  logger?: Logger;
 }
 
 export interface SearchConfig {
@@ -116,6 +120,7 @@ export async function runSearch(
   body: SearchRequestBody,
   config: SearchConfig = DEFAULT_SEARCH_CONFIG,
 ): Promise<SearchResponseBody> {
+  const logger = deps.logger ?? createLogger({}, { sink: () => {} });
   const origins = body.origins;
   if (origins.length === 0) {
     throw new Error("At least one origin is required");
@@ -128,13 +133,8 @@ export async function runSearch(
   );
 
   // Stage one: find the best meeting areas by real travel time, not geometry.
-  const areas = await findMeetingAreas(
-    deps.travel,
-    origins,
-    body.mode,
-    objective,
-    config.area,
-    body.transit,
+  const areas = await timed(logger, "areas", () =>
+    findMeetingAreas(deps.travel, origins, body.mode, objective, config.area, body.transit),
   );
   const centers: LatLng[] = areas.length > 0 ? areas.map((a) => a.center) : [median];
   const primaryCenter = centers[0]!;
@@ -142,39 +142,60 @@ export async function runSearch(
   const searchRadiusMeters = body.searchRadiusMeters ?? config.areaRadiusMeters;
 
   // Stage two: gather venues around each chosen area (in parallel) and dedupe.
-  const pools = await Promise.all(
-    centers.map((center) =>
-      deps.places.search({
-        center,
-        radiusMeters: searchRadiusMeters,
-        category: body.category,
-        maxPages: config.searchPages,
-        openNow: body.openNow,
-      }),
-    ),
+  const pools = await timed(
+    logger,
+    "places",
+    () =>
+      Promise.all(
+        centers.map((center) =>
+          deps.places.search({
+            center,
+            radiusMeters: searchRadiusMeters,
+            category: body.category,
+            maxPages: config.searchPages,
+            openNow: body.openNow,
+          }),
+        ),
+      ),
+    { areas: centers.length, radiusMeters: searchRadiusMeters },
   );
   const found = dedupePlacesById(pools.flat());
 
   const candidates = preselectCandidates(centers, found, config.candidateLimit);
+  logger.info("candidates selected", { found: found.length, candidates: candidates.length });
+
+  const weights = normalizeWeights({
+    travel: body.travelWeight ?? SEARCH_DEFAULTS.travelWeight,
+    rating: body.ratingWeight ?? SEARCH_DEFAULTS.ratingWeight,
+  });
 
   if (candidates.length === 0) {
+    logger.warn("no venues found near meeting areas", { radiusMeters: searchRadiusMeters });
     return {
       seed: primaryCenter,
       origins,
       category: body.category,
       mode: body.mode,
       objective,
+      weights,
       searchRadiusMeters,
       venues: [],
+      unreachableOrigins: [],
     };
   }
 
-  const matrix = await deps.travel.matrix({
-    origins: origins.map((o) => o.location),
-    destinations: candidates.map((c) => c.location),
-    mode: body.mode,
-    transit: body.transit,
-  });
+  const matrix = await timed(
+    logger,
+    "travel",
+    () =>
+      deps.travel.matrix({
+        origins: origins.map((o) => o.location),
+        destinations: candidates.map((c) => c.location),
+        mode: body.mode,
+        transit: body.transit,
+      }),
+    { origins: origins.length, destinations: candidates.length },
+  );
 
   const durationGrid: Array<Array<number | null>> = origins.map(() =>
     candidates.map(() => null),
@@ -205,10 +226,7 @@ export async function runSearch(
     })),
     {
       objective,
-      weights: {
-        travel: body.travelWeight ?? SEARCH_DEFAULTS.travelWeight,
-        rating: body.ratingWeight ?? SEARCH_DEFAULTS.ratingWeight,
-      },
+      weights,
     },
   );
 
@@ -249,10 +267,29 @@ export async function runSearch(
         objectiveCostSeconds: entry.objectiveCostSeconds,
         totalSeconds: entry.totalSeconds,
         maxSeconds: entry.maxSeconds,
+        normalizedTravel: entry.normalizedTravel,
+        normalizedRating: entry.normalizedRating,
         legs,
       } satisfies ResultVenue,
     ];
   });
+
+  // An origin is "stuck" when no returned venue is reachable from it. Surfacing
+  // this lets the client name who is unreachable instead of only flagging venues.
+  const unreachableOrigins = origins
+    .filter((origin) =>
+      venues.every((venue) =>
+        venue.legs.some((leg) => leg.originId === origin.id && leg.durationSeconds === null),
+      ),
+    )
+    .map((origin) => origin.id);
+
+  if (unreachableOrigins.length > 0) {
+    logger.warn("origins unreachable for all returned venues", {
+      unreachableOrigins,
+      venues: venues.length,
+    });
+  }
 
   return {
     seed: primaryCenter,
@@ -260,7 +297,9 @@ export async function runSearch(
     category: body.category,
     mode: body.mode,
     objective,
+    weights,
     searchRadiusMeters,
     venues,
+    unreachableOrigins,
   };
 }

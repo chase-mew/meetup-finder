@@ -37,7 +37,7 @@ export {
   normalizeRating,
 } from "./rating";
 
-export { scoreVenues } from "./scoring";
+export { scoreVenues, normalizeWeights } from "./scoring";
 
 export { SEARCH_DEFAULTS } from "./defaults";
 
@@ -47,3 +47,18 @@ export type {
   ResultLeg,
   ResultVenue,
 } from "./api";
+
+export {
+  noopReporter,
+  parseDsn,
+  SentryReporter,
+  createReporter,
+} from "./reporting";
+export type {
+  ReportLevel,
+  ReportContext,
+  ErrorReporter,
+  ParsedDsn,
+  SentryReporterOptions,
+  CreateReporterOptions,
+} from "./reporting";
