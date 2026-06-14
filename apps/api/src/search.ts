@@ -70,6 +70,10 @@ export function preselectCandidates(
   places: Place[],
   limit: number,
 ): Place[] {
+  // With no centre there is no proximity signal; just cap to the limit.
+  if (centers.length === 0) {
+    return places.slice(0, Math.max(0, limit));
+  }
   if (places.length <= limit) {
     return places;
   }

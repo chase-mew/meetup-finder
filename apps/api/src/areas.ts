@@ -172,6 +172,9 @@ function stationsInBox(bbox: BoundingBox): Station[] {
  * deduplicated and capped to a matrix budget that scales with group size.
  */
 export function buildAnchors(origins: Origin[], config: AreaFinderConfig): LatLng[] {
+  if (origins.length === 0) {
+    return [];
+  }
   const locations = origins.map((o) => o.location);
   const median = weightedGeometricMedian(
     locations,
@@ -188,7 +191,7 @@ export function buildAnchors(origins: Origin[], config: AreaFinderConfig): LatLn
 
   const peopleCount = Math.max(1, origins.length);
   const budgetCap = Math.max(1, Math.floor(config.matrixElementBudget / peopleCount));
-  const cap = Math.min(config.maxAnchors, Math.max(grid.length + 1, budgetCap));
+  const cap = Math.min(config.maxAnchors, budgetCap);
   return anchors.slice(0, cap);
 }
 
@@ -207,6 +210,9 @@ export async function findMeetingAreas(
   objective: Objective,
   config: AreaFinderConfig = DEFAULT_AREA_CONFIG,
 ): Promise<MeetingArea[]> {
+  if (origins.length === 0) {
+    return [];
+  }
   const anchors = buildAnchors(origins, config);
   if (anchors.length === 0) {
     return [];

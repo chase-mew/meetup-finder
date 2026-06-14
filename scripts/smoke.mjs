@@ -15,7 +15,26 @@ const DEFAULT_PEOPLE = [
 ];
 
 // Override with SMOKE_PEOPLE, a JSON array of { label, query }.
-const PEOPLE = process.env.SMOKE_PEOPLE ? JSON.parse(process.env.SMOKE_PEOPLE) : DEFAULT_PEOPLE;
+function parseSmokePeople(value) {
+  if (!value) {
+    return DEFAULT_PEOPLE;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error("SMOKE_PEOPLE must be valid JSON (an array of { label, query }).");
+  }
+  const valid =
+    Array.isArray(parsed) &&
+    parsed.every(
+      (p) => p && typeof p.label === "string" && typeof p.query === "string",
+    );
+  if (!valid) {
+    throw new Error("SMOKE_PEOPLE must be an array of { label: string, query: string }.");
+  }
+  return parsed;
+}
 
 const CATEGORY = process.env.SMOKE_CATEGORY ?? "cafe";
 const MODE = process.env.SMOKE_MODE ?? "transit";
@@ -47,11 +66,13 @@ async function getJson(url, init) {
 async function main() {
   console.log(`Smoke testing ${BASE}\n`);
 
+  const people = parseSmokePeople(process.env.SMOKE_PEOPLE);
+
   const health = await getJson(`${BASE}/api/health`);
   console.log("health:", JSON.stringify(health));
 
   const origins = [];
-  for (const person of PEOPLE) {
+  for (const person of people) {
     const result = await getJson(`${BASE}/api/geocode?q=${encodeURIComponent(person.query)}`);
     console.log(
       `geocoded ${person.label.padEnd(6)} "${person.query}" -> ${result.formattedAddress}`,

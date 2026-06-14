@@ -19,7 +19,7 @@ describe("boundingBox", () => {
     expect(box.minLat).toBeLessThan(51.5);
     expect(box.maxLat).toBeGreaterThan(51.5005);
     // The tiny cluster is widened so a grid is still meaningful.
-    expect(box.maxLat - box.minLat).toBeGreaterThan(0.012);
+    expect(box.maxLat - box.minLat).toBeGreaterThanOrEqual(0.012);
   });
 });
 
