@@ -6,6 +6,7 @@ import {
   parseDurationSeconds,
   readError,
   resolveFetch,
+  transitPreferencesToGoogle,
   travelModeToGoogle,
 } from "./shared";
 
@@ -116,7 +117,13 @@ export class GoogleTravelProvider implements TravelProvider {
       MAX_MATRIX_CONCURRENCY,
       async (start) => {
         const chunk = request.destinations.slice(start, start + destinationsPerRequest);
-        const body = this.buildBody(request.origins, chunk, travelMode, request.departureTime);
+        const body = this.buildBody(
+          request.origins,
+          chunk,
+          travelMode,
+          request.departureTime,
+          request.transit,
+        );
 
         const response = await fetchImpl(ROUTE_MATRIX_URL, {
           method: "POST",
@@ -151,6 +158,7 @@ export class GoogleTravelProvider implements TravelProvider {
     destinations: LatLng[],
     travelMode: "TRANSIT" | "WALK" | "DRIVE",
     departureTime?: Date,
+    transit?: TravelMatrixRequest["transit"],
   ): Record<string, unknown> {
     const body: Record<string, unknown> = {
       origins: origins.map(toWaypoint),
@@ -164,6 +172,13 @@ export class GoogleTravelProvider implements TravelProvider {
     // "departure time in the past" errors from clock skew.
     if (departureTime && (travelMode === "TRANSIT" || travelMode === "DRIVE")) {
       body.departureTime = departureTime.toISOString();
+    }
+    // Transit preferences only make sense for transit routes.
+    if (travelMode === "TRANSIT") {
+      const transitPreferences = transitPreferencesToGoogle(transit);
+      if (transitPreferences) {
+        body.transitPreferences = transitPreferences;
+      }
     }
     return body;
   }

@@ -134,4 +134,52 @@ describe("GoogleTravelProvider.matrix", () => {
     expect(result.cells).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  function okFetch() {
+    return vi.fn(async () => new Response(JSON.stringify([]), { status: 200 }));
+  }
+
+  it("sends transit preferences in the request body for transit", async () => {
+    const fetchImpl = okFetch();
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await provider.matrix({
+      origins,
+      destinations: makeDestinations(2),
+      mode: "transit",
+      transit: {
+        allowedModes: ["subway", "train", "light_rail", "rail"],
+        routingPreference: "fewer_transfers",
+      },
+    });
+
+    const body = JSON.parse(String((fetchImpl.mock.calls[0]![1] as RequestInit).body));
+    expect(body.transitPreferences).toEqual({
+      allowedTravelModes: ["SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"],
+      routingPreference: "FEWER_TRANSFERS",
+    });
+  });
+
+  it("omits transit preferences when none are requested", async () => {
+    const fetchImpl = okFetch();
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await provider.matrix({ origins, destinations: makeDestinations(2), mode: "transit" });
+
+    const body = JSON.parse(String((fetchImpl.mock.calls[0]![1] as RequestInit).body));
+    expect(body.transitPreferences).toBeUndefined();
+  });
+
+  it("ignores transit preferences for non transit modes", async () => {
+    const fetchImpl = okFetch();
+    const provider = new GoogleTravelProvider({ apiKey: "k", fetchImpl });
+    await provider.matrix({
+      origins,
+      destinations: makeDestinations(2),
+      mode: "walking",
+      transit: { routingPreference: "less_walking" },
+    });
+
+    const body = JSON.parse(String((fetchImpl.mock.calls[0]![1] as RequestInit).body));
+    expect(body.transitPreferences).toBeUndefined();
+    expect(body.travelMode).toBe("WALK");
+  });
 });

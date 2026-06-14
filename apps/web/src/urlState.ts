@@ -1,4 +1,11 @@
-import { type LatLng, type Objective, SEARCH_DEFAULTS, type TravelMode, type VenueCategory } from "@meetup/core";
+import {
+  type LatLng,
+  type Objective,
+  SEARCH_DEFAULTS,
+  type TravelMode,
+  type VenueCategory,
+} from "@meetup/core";
+import type { TransitRoutingChoice } from "./components/AdvancedControls";
 
 /** A single origin as stored in the URL: a label plus rounded coordinates. */
 export interface UrlOrigin {
@@ -15,11 +22,14 @@ export interface SearchUrlState {
   ratingWeight: number;
   limit: number;
   openNow: boolean;
+  excludeBuses: boolean;
+  transitRouting: TransitRoutingChoice;
 }
 
 const CATEGORIES: readonly VenueCategory[] = ["cafe", "lunch", "dinner", "pub", "park"];
 const MODES: readonly TravelMode[] = ["transit", "walking", "cycling", "driving"];
 const OBJECTIVES: readonly Objective[] = ["min_total", "min_max", "min_variance", "best"];
+const TRANSIT_ROUTINGS: readonly TransitRoutingChoice[] = ["any", "less_walking", "fewer_transfers"];
 
 const DEFAULTS = {
   category: "cafe" as VenueCategory,
@@ -28,6 +38,8 @@ const DEFAULTS = {
   ratingWeight: SEARCH_DEFAULTS.ratingWeight,
   limit: SEARCH_DEFAULTS.limit,
   openNow: false,
+  excludeBuses: false,
+  transitRouting: "any" as TransitRoutingChoice,
 };
 
 /** Coordinates are rounded to keep links short while staying accurate enough. */
@@ -55,6 +67,8 @@ export function encodeSearchState(state: SearchUrlState): string {
   params.set("rw", String(Number(state.ratingWeight.toFixed(2))));
   params.set("limit", String(state.limit));
   params.set("open", state.openNow ? "1" : "0");
+  params.set("xbus", state.excludeBuses ? "1" : "0");
+  params.set("troute", state.transitRouting);
   return params.toString();
 }
 
@@ -84,6 +98,8 @@ export function decodeSearchState(query: string): SearchUrlState | null {
     ratingWeight: parseWeight(params.get("rw")),
     limit: parseLimit(params.get("limit")),
     openNow: params.get("open") === "1",
+    excludeBuses: params.get("xbus") === "1",
+    transitRouting: pickEnum(params.get("troute"), TRANSIT_ROUTINGS, DEFAULTS.transitRouting),
   };
 }
 

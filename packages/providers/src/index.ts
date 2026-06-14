@@ -19,6 +19,7 @@ export {
   categoryToTextQuery,
   matchesCategoryPrimaryType,
   travelModeToGoogle,
+  transitPreferencesToGoogle,
   parseDurationSeconds,
 } from "./google/shared";
 

@@ -3,12 +3,14 @@ import {
   SEARCH_DEFAULTS,
   type SearchRequestBody,
   type SearchResponseBody,
+  type TransitPreferences,
+  type TransitTravelMode,
   type TravelMode,
   type VenueCategory,
 } from "@meetup/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { geocode, reverseGeocode, search } from "./api";
-import { AdvancedControls } from "./components/AdvancedControls";
+import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
 import { LoadingResults } from "./components/LoadingResults";
 import { MapView, type MapOrigin } from "./components/MapView";
@@ -25,6 +27,28 @@ import {
 import { useTheme } from "./useTheme";
 
 const MAX_PEOPLE = 10;
+
+// Allow-list of transit submodes used when the user opts to exclude buses.
+const NON_BUS_TRANSIT_MODES: TransitTravelMode[] = ["subway", "train", "light_rail", "rail"];
+
+/** Build a transit preferences object from the advanced controls, or undefined. */
+function buildTransitPreferences(
+  mode: TravelMode,
+  excludeBuses: boolean,
+  routing: TransitRoutingChoice,
+): TransitPreferences | undefined {
+  if (mode !== "transit") {
+    return undefined;
+  }
+  const preferences: TransitPreferences = {};
+  if (excludeBuses) {
+    preferences.allowedModes = NON_BUS_TRANSIT_MODES;
+  }
+  if (routing !== "any") {
+    preferences.routingPreference = routing;
+  }
+  return Object.keys(preferences).length > 0 ? preferences : undefined;
+}
 
 function newPerson(): Person {
   return {
@@ -118,6 +142,8 @@ export function App() {
   const [ratingWeight, setRatingWeight] = useState<number>(SEARCH_DEFAULTS.ratingWeight);
   const [limit, setLimit] = useState<number>(SEARCH_DEFAULTS.limit);
   const [openNow, setOpenNow] = useState(false);
+  const [excludeBuses, setExcludeBuses] = useState(false);
+  const [transitRouting, setTransitRouting] = useState<TransitRoutingChoice>("any");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -228,6 +254,8 @@ export function App() {
       ratingWeight: number;
       limit: number;
       openNow: boolean;
+      excludeBuses: boolean;
+      transitRouting: TransitRoutingChoice;
     },
   ) {
     if (origins.length < 2) {
@@ -244,6 +272,7 @@ export function App() {
       ratingWeight: Number(options.ratingWeight.toFixed(2)),
       limit: options.limit,
       openNow: options.openNow,
+      transit: buildTransitPreferences(options.mode, options.excludeBuses, options.transitRouting),
     };
 
     setLoading(true);
@@ -260,6 +289,8 @@ export function App() {
         ratingWeight: options.ratingWeight,
         limit: options.limit,
         openNow: options.openNow,
+        excludeBuses: options.excludeBuses,
+        transitRouting: options.transitRouting,
       };
       writeSearchStateToUrl(urlState);
       setShareUrl(buildShareUrl(urlState));
@@ -289,7 +320,16 @@ export function App() {
         location: p.location!,
       }));
 
-    await executeSearch(origins, { category, mode, objective, ratingWeight, limit, openNow });
+    await executeSearch(origins, {
+      category,
+      mode,
+      objective,
+      ratingWeight,
+      limit,
+      openNow,
+      excludeBuses,
+      transitRouting,
+    });
   }
 
   const didLoadFromUrl = useRef(false);
@@ -310,11 +350,15 @@ export function App() {
     setRatingWeight(urlState.ratingWeight);
     setLimit(urlState.limit);
     setOpenNow(urlState.openNow);
+    setExcludeBuses(urlState.excludeBuses);
+    setTransitRouting(urlState.transitRouting);
     if (
       urlState.objective !== SEARCH_DEFAULTS.objective ||
       urlState.ratingWeight !== SEARCH_DEFAULTS.ratingWeight ||
       urlState.limit !== SEARCH_DEFAULTS.limit ||
-      urlState.openNow
+      urlState.openNow ||
+      urlState.excludeBuses ||
+      urlState.transitRouting !== "any"
     ) {
       setShowAdvanced(true);
     }
@@ -335,6 +379,8 @@ export function App() {
         ratingWeight: urlState.ratingWeight,
         limit: urlState.limit,
         openNow: urlState.openNow,
+        excludeBuses: urlState.excludeBuses,
+        transitRouting: urlState.transitRouting,
       });
     }
     // Runs once on mount to hydrate from a shared link.
@@ -413,6 +459,11 @@ export function App() {
                 onLimit={setLimit}
                 openNow={openNow}
                 onOpenNow={setOpenNow}
+                showTransit={mode === "transit"}
+                excludeBuses={excludeBuses}
+                onExcludeBuses={setExcludeBuses}
+                transitRouting={transitRouting}
+                onTransitRouting={setTransitRouting}
               />
             ) : null}
           </section>

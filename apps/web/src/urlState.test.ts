@@ -18,6 +18,8 @@ const sampleState: SearchUrlState = {
   ratingWeight: 0.4,
   limit: 8,
   openNow: true,
+  excludeBuses: false,
+  transitRouting: "any",
 };
 
 describe("encode then decode round trip", () => {
@@ -90,11 +92,28 @@ describe("decodeSearchState", () => {
       ratingWeight: SEARCH_DEFAULTS.ratingWeight,
       limit: SEARCH_DEFAULTS.limit,
       openNow: false,
+      excludeBuses: false,
+      transitRouting: "any",
     });
   });
 
   it("accepts the park category", () => {
     expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&cat=park")?.category).toBe("park");
+  });
+
+  it("round trips transit preferences", () => {
+    const state: SearchUrlState = {
+      ...sampleState,
+      mode: "transit",
+      excludeBuses: true,
+      transitRouting: "fewer_transfers",
+    };
+    expect(decodeSearchState(encodeSearchState(state))).toEqual(state);
+  });
+
+  it("falls back to a known transit routing when unknown", () => {
+    const decoded = decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&troute=warp");
+    expect(decoded?.transitRouting).toBe("any");
   });
 
   it("falls back to defaults when enum values are unknown", () => {

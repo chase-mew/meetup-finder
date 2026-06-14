@@ -1,10 +1,19 @@
-import type { Objective } from "@meetup/core";
+import type { Objective, TransitRoutingPreference } from "@meetup/core";
 
 const OBJECTIVES: Array<{ value: Objective; label: string; hint: string }> = [
   { value: "best", label: "Best", hint: "Balances all three goals below" },
   { value: "min_max", label: "Fairest", hint: "Nobody travels too far" },
   { value: "min_total", label: "Most efficient", hint: "Lowest total travel time" },
   { value: "min_variance", label: "Most even", hint: "Everyone travels about the same" },
+];
+
+/** Sentinel for "no transit routing preference" in the select control. */
+export type TransitRoutingChoice = TransitRoutingPreference | "any";
+
+const TRANSIT_ROUTING: Array<{ value: TransitRoutingChoice; label: string }> = [
+  { value: "any", label: "No preference" },
+  { value: "fewer_transfers", label: "Fewer transfers" },
+  { value: "less_walking", label: "Less walking" },
 ];
 
 interface AdvancedControlsProps {
@@ -16,6 +25,12 @@ interface AdvancedControlsProps {
   onLimit: (value: number) => void;
   openNow: boolean;
   onOpenNow: (value: boolean) => void;
+  /** Transit only controls are shown when the travel mode is transit. */
+  showTransit: boolean;
+  excludeBuses: boolean;
+  onExcludeBuses: (value: boolean) => void;
+  transitRouting: TransitRoutingChoice;
+  onTransitRouting: (value: TransitRoutingChoice) => void;
 }
 
 export function AdvancedControls(props: AdvancedControlsProps) {
@@ -86,6 +101,35 @@ export function AdvancedControls(props: AdvancedControlsProps) {
           <span>Open now only</span>
         </label>
       </div>
+
+      {props.showTransit ? (
+        <div className="field">
+          <span className="field__label">Transit preferences</span>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={props.excludeBuses}
+              onChange={(event) => props.onExcludeBuses(event.target.checked)}
+            />
+            <span>Exclude buses</span>
+          </label>
+          <label className="field field--inline">
+            <span className="field__label">Routing</span>
+            <select
+              value={props.transitRouting}
+              onChange={(event) =>
+                props.onTransitRouting(event.target.value as TransitRoutingChoice)
+              }
+            >
+              {TRANSIT_ROUTING.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
     </div>
   );
 }
