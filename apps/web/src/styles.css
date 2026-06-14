@@ -1313,17 +1313,40 @@ input[type="range"] {
 /* Responsive -------------------------------------------------------------- */
 
 @media (max-width: 900px) {
+  html,
+  body,
+  #root {
+    height: auto;
+  }
+
+  .app {
+    height: auto;
+    min-height: 100%;
+  }
+
   .layout {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 
   .panel {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    overflow-y: visible;
   }
 
   .content {
-    min-height: 70vh;
+    min-height: 0;
+  }
+
+  .map {
+    height: 280px;
+    min-height: 0;
+  }
+
+  .results {
+    flex: none;
+    overflow-y: visible;
   }
 
   .venue {
