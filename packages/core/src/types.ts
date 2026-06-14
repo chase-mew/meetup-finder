@@ -8,7 +8,7 @@ export interface LatLng {
 export type TravelMode = "transit" | "walking" | "cycling" | "driving";
 
 /** High level venue category chosen by the user. */
-export type VenueCategory = "cafe" | "lunch" | "dinner" | "pub";
+export type VenueCategory = "cafe" | "lunch" | "dinner" | "pub" | "park";
 
 /**
  * Travel cost objective used to score how good a venue is for the group.
