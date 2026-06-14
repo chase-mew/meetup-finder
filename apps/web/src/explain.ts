@@ -65,12 +65,10 @@ export function explainResultsGeography(
   }
   const mode = MODE_TRAVEL_PHRASE[result.mode];
   const people = result.origins.length;
+  const audience = people === 1 ? "you" : `all ${people} of you`;
   return {
     headline: "Chosen for fair travel, not the centre of the map",
-    detail:
-      `These spots are picked for ${OBJECTIVE_TRAVEL_PHRASE[result.objective]} by ${mode} ` +
-      `for all ${people} of you, not for being central. A more central area was skipped ` +
-      "because it would mean a longer trip for at least one person.",
+    detail: `These spots are picked for ${OBJECTIVE_TRAVEL_PHRASE[result.objective]} by ${mode} for ${audience}, not for being central. A more central area was skipped because it would mean a longer trip for at least one person.`,
   };
 }
 

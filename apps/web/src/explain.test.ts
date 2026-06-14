@@ -102,4 +102,13 @@ describe("explainResultsGeography", () => {
     const summary = explainResultsGeography({ ...baseResult, mode: "walking" });
     expect(summary!.detail).toContain("walking");
   });
+
+  it("reads naturally for a single origin", () => {
+    const summary = explainResultsGeography({
+      ...baseResult,
+      origins: [{ id: "a", label: "Alice", location: { lat: 51.5, lng: -0.1 } }],
+    });
+    expect(summary!.detail).toContain("for you");
+    expect(summary!.detail).not.toContain("all 1 of you");
+  });
 });
