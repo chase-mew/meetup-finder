@@ -110,6 +110,10 @@ describe("decodeSearchState", () => {
   it("rejects a non positive or fractional limit", () => {
     expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=0")?.limit).toBe(5);
     expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=2.5")?.limit).toBe(5);
-    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=12")?.limit).toBe(12);
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=8")?.limit).toBe(8);
+  });
+
+  it("clamps the limit to the maximum the API allows", () => {
+    expect(decodeSearchState("o=51.5,-0.1,A&o=51.4,-0.2,B&limit=50")?.limit).toBe(10);
   });
 });

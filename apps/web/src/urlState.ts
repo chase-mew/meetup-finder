@@ -33,6 +33,9 @@ const DEFAULTS = {
 /** Coordinates are rounded to keep links short while staying accurate enough. */
 const COORD_DECIMALS = 5;
 
+/** Upper bound for the result limit, matching the API validation (1..10). */
+const MAX_LIMIT = 10;
+
 export function roundCoord(value: number): number {
   return Number(value.toFixed(COORD_DECIMALS));
 }
@@ -158,5 +161,5 @@ function parseLimit(raw: string | null): number {
   if (!Number.isInteger(value) || value < 1) {
     return DEFAULTS.limit;
   }
-  return value;
+  return Math.min(value, MAX_LIMIT);
 }

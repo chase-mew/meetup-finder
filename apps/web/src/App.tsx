@@ -229,7 +229,7 @@ export function App() {
       setShowAdvanced(true);
     }
 
-    const loadedPeople = urlState.origins.map(personFromUrlOrigin);
+    const loadedPeople = urlState.origins.slice(0, MAX_PEOPLE).map(personFromUrlOrigin);
     setPeople(loadedPeople);
 
     if (loadedPeople.length >= 2) {
