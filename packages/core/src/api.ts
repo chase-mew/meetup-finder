@@ -76,4 +76,10 @@ export interface SearchResponseBody {
   /** Radius used for the venue search, in metres. */
   searchRadiusMeters: number;
   venues: ResultVenue[];
+  /**
+   * Ids of origins that no returned venue can reach by the chosen mode. Lets
+   * the client call out exactly who is stuck rather than only flagging venues.
+   * Empty when everyone can reach at least one venue.
+   */
+  unreachableOrigins: string[];
 }
