@@ -1,0 +1,25 @@
+{
+  "name": "meetup-finder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Find the fairest place to meet by real public transport travel time blended with venue rating.",
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:integration": "RUN_INTEGRATION=1 pnpm --filter @meetup/api test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "dev:api": "pnpm --filter @meetup/api dev",
+    "dev:web": "pnpm --filter @meetup/web dev",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

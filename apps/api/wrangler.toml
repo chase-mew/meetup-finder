@@ -1,0 +1,15 @@
+name = "meetup-finder-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+
+# Local development reads GOOGLE_MAPS_API_KEY from apps/api/.dev.vars
+# For deployment, set it as a secret:
+#   wrangler secret put GOOGLE_MAPS_API_KEY
+#
+# Durable caching uses Workers KV. Without a binding the Worker falls back to
+# an in memory cache, so this is optional. To enable it:
+#   wrangler kv namespace create CACHE
+# then put the returned id below and uncomment:
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"

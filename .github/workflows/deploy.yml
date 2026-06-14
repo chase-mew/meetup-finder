@@ -1,0 +1,89 @@
+name: Deploy
+
+# Deploys the Worker API and the web app to Cloudflare on every push to main.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   CLOUDFLARE_API_TOKEN   Token with "Workers Scripts: Edit", "Cloudflare Pages: Edit",
+#                          and "Workers KV Storage: Edit" permissions on the account.
+#   CLOUDFLARE_ACCOUNT_ID  Your Cloudflare account id.
+#   GOOGLE_MAPS_API_KEY    The Google key, uploaded as a Worker secret during deploy.
+#
+# Required repository variable:
+#   VITE_API_BASE_URL      The deployed Worker URL, e.g.
+#                          https://meetup-finder-api.<subdomain>.workers.dev
+#
+# One time setup: create the Pages project first so the deploy is non interactive:
+#   npx wrangler pages project create meetup-finder --production-branch main
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-api:
+    name: Deploy Worker API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test before deploy
+        run: pnpm -r test
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          command: deploy
+          secrets: |
+            GOOGLE_MAPS_API_KEY
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+  deploy-web:
+    name: Deploy web app
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        run: pnpm --filter @meetup/web build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/web/dist --project-name=meetup-finder --branch=main

@@ -1,0 +1,3 @@
+# Copy this file to .dev.vars and fill in your key.
+# Enable on the key: Geocoding API, Places API (New), Routes API.
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
