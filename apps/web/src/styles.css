@@ -1887,7 +1887,6 @@ input[type="range"] {
 
 .map-popup-shell .leaflet-popup-content {
   margin: 0;
-  width: auto !important;
   line-height: var(--leading-snug);
 }
 
