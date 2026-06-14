@@ -55,9 +55,17 @@ export class KvRateLimitStore implements RateLimitStore {
   }
 }
 
-/** In memory store, scoped to a single isolate. Fallback for local dev. */
+/**
+ * In memory store, scoped to a single isolate. Fallback for local dev.
+ *
+ * Expired entries are dropped on read, and writes are capped at maxEntries to
+ * stop a flood of one off client ids from growing the map without bound: once
+ * full, expired keys are swept first, then the oldest entries are evicted.
+ */
 export class MemoryRateLimitStore implements RateLimitStore {
   private readonly store = new Map<string, { value: string; expires: number }>();
+
+  constructor(private readonly maxEntries = 10_000) {}
 
   async get(key: string): Promise<string | null> {
     const entry = this.store.get(key);
@@ -72,7 +80,26 @@ export class MemoryRateLimitStore implements RateLimitStore {
   }
 
   async put(key: string, value: string, ttlSeconds: number): Promise<void> {
-    this.store.set(key, { value, expires: Date.now() + ttlSeconds * 1000 });
+    const now = Date.now();
+    this.store.set(key, { value, expires: now + ttlSeconds * 1000 });
+    if (this.store.size > this.maxEntries) {
+      this.evict(now);
+    }
+  }
+
+  private evict(now: number): void {
+    for (const [key, entry] of this.store) {
+      if (entry.expires <= now) {
+        this.store.delete(key);
+      }
+    }
+    while (this.store.size > this.maxEntries) {
+      const oldest = this.store.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      this.store.delete(oldest);
+    }
   }
 }
 

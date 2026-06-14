@@ -69,7 +69,14 @@ const rateLimit = createMiddleware<{ Bindings: Env }>(async (c, next) => {
     return next();
   }
   const limiter = new RateLimiter(rateLimitStoreFor(c.env), config);
-  const result = await limiter.check(clientIdOf(c));
+  let result: Awaited<ReturnType<RateLimiter["check"]>>;
+  try {
+    result = await limiter.check(clientIdOf(c));
+  } catch (error) {
+    // Fail open: a transient store outage must not take the endpoint down.
+    console.error("Rate limiter check failed, allowing request:", error);
+    return next();
+  }
   if (!result.allowed) {
     c.header("Retry-After", String(result.retryAfterSeconds));
     return c.json({ error: rateLimitMessage(result) }, 429);

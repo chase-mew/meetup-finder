@@ -110,6 +110,16 @@ describe("MemoryRateLimitStore", () => {
     await new Promise((resolve) => setTimeout(resolve, 2));
     expect(await store.get("k")).toBeNull();
   });
+
+  it("evicts entries once it exceeds its capacity", async () => {
+    const store = new MemoryRateLimitStore(3);
+    for (let i = 0; i < 10; i++) {
+      await store.put(`k${i}`, "v", 60);
+    }
+    // The oldest keys are dropped, the most recent are retained.
+    expect(await store.get("k0")).toBeNull();
+    expect(await store.get("k9")).toBe("v");
+  });
 });
 
 describe("rateLimitConfigFromEnv", () => {
