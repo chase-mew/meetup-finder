@@ -1,6 +1,6 @@
-import type { ResultVenue, ScoreWeights } from "@meetup/core";
+import type { ResultVenue, ScoreWeights, SearchResponseBody } from "@meetup/core";
 import { describe, expect, it } from "vitest";
-import { explainVenue } from "./explain";
+import { explainResultsGeography, explainVenue } from "./explain";
 
 const WEIGHTS: ScoreWeights = { travel: 0.7, rating: 0.3 };
 
@@ -71,5 +71,44 @@ describe("explainVenue", () => {
     const explanation = explainVenue(venue, "best", { travel: 7, rating: 3 });
     expect(explanation.travelShare).toBeCloseTo(0.7, 5);
     expect(explanation.travelShare + explanation.ratingShare).toBeCloseTo(1, 5);
+  });
+});
+
+describe("explainResultsGeography", () => {
+  const baseResult: Pick<SearchResponseBody, "objective" | "mode" | "origins" | "venues"> = {
+    objective: "best",
+    mode: "transit",
+    origins: [
+      { id: "a", label: "Alice", location: { lat: 51.5, lng: -0.1 } },
+      { id: "b", label: "Bob", location: { lat: 51.51, lng: -0.12 } },
+    ],
+    venues: [makeVenue()],
+  };
+
+  it("returns null when there are no venues", () => {
+    expect(explainResultsGeography({ ...baseResult, venues: [] })).toBeNull();
+  });
+
+  it("explains the fair-travel choice and why central was skipped", () => {
+    const summary = explainResultsGeography(baseResult);
+    expect(summary).not.toBeNull();
+    expect(summary!.detail).toContain("public transport");
+    expect(summary!.detail).toContain("all 2 of you");
+    expect(summary!.detail.toLowerCase()).toContain("central");
+    expect(summary!.detail.toLowerCase()).toContain("longer trip");
+  });
+
+  it("names the chosen travel mode", () => {
+    const summary = explainResultsGeography({ ...baseResult, mode: "walking" });
+    expect(summary!.detail).toContain("walking");
+  });
+
+  it("reads naturally for a single origin", () => {
+    const summary = explainResultsGeography({
+      ...baseResult,
+      origins: [{ id: "a", label: "Alice", location: { lat: 51.5, lng: -0.1 } }],
+    });
+    expect(summary!.detail).toContain("for you");
+    expect(summary!.detail).not.toContain("all 1 of you");
   });
 });
