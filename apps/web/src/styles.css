@@ -85,8 +85,8 @@
   --panel: #ffffff;
   --surface: #ffffff;
   --surface-2: #f6f2eb;
-  --track: #eae4da;
-  --chip: #efeae1;
+  --track: #f1ece4;
+  --chip: #f1ece4;
   --img-placeholder: #ece6dc;
   --ink: #221f1b;
   --ink-2: #45413b;
@@ -762,7 +762,9 @@ select:focus {
   border: 0;
   background: transparent;
   padding: 9px 8px;
-  border-radius: var(--radius-xs);
+  /* Concentric with the track: container radius (--radius-md) minus its padding
+     (--space-1) so the selected pill nests cleanly inside the rounded track. */
+  border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
@@ -789,7 +791,7 @@ select:focus {
 .segmented__item.is-active {
   background: var(--surface);
   color: var(--accent);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
 }
 
 .segmented__title {
