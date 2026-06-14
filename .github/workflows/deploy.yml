@@ -8,9 +8,10 @@ name: Deploy
 #   CLOUDFLARE_ACCOUNT_ID  Your Cloudflare account id.
 #   GOOGLE_MAPS_API_KEY    The Google key, uploaded as a Worker secret during deploy.
 #
-# Required repository variable:
+# Required repository variable or secret:
 #   VITE_API_BASE_URL      The deployed Worker URL, e.g.
 #                          https://meetup-finder-api.<subdomain>.workers.dev
+#                          Either a repository variable or secret works.
 #
 # The Pages project is created automatically on the first run if it does not
 # exist, so no manual setup is needed.
@@ -79,7 +80,8 @@ jobs:
       - name: Build web
         run: pnpm --filter @meetup/web build
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          # Accept the value whether it was set as a repository variable or secret.
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
 
       - name: Ensure Pages project exists
         run: pnpm exec wrangler pages project create meetup-finder --production-branch main || true
