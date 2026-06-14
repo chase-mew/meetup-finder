@@ -65,4 +65,11 @@ describe("explainVenue", () => {
     expect(explanation.travelShare).toBeCloseTo(0.6, 5);
     expect(explanation.ratingShare).toBeCloseTo(0.4, 5);
   });
+
+  it("normalizes the fallback so shares sum to one even with raw weights", () => {
+    const venue = makeVenue({ normalizedTravel: 1, normalizedRating: 0 });
+    const explanation = explainVenue(venue, "best", { travel: 7, rating: 3 });
+    expect(explanation.travelShare).toBeCloseTo(0.7, 5);
+    expect(explanation.travelShare + explanation.ratingShare).toBeCloseTo(1, 5);
+  });
 });

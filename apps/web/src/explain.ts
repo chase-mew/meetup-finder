@@ -27,6 +27,10 @@ const OBJECTIVE_HEADLINE: Record<Objective, string> = {
   min_variance: "Most even trips for the group",
 };
 
+// Below this normalized travel cost a venue is among the very best on travel, so
+// the headline leads with the objective rather than the trade off.
+const VERY_GOOD_TRAVEL_THRESHOLD = 0.15;
+
 /** Describe how this venue's travel compares with the others (lower is better). */
 function travelStanding(normalizedTravel: number): string {
   if (normalizedTravel <= 0.2) {
@@ -70,7 +74,12 @@ function strengthShares(
   const ratingStrength = weights.rating * venue.normalizedRating;
   const total = travelStrength + ratingStrength;
   if (total <= 0) {
-    return { travelShare: weights.travel, ratingShare: weights.rating };
+    const weightTotal = weights.travel + weights.rating;
+    if (weightTotal <= 0) {
+      return { travelShare: 0.5, ratingShare: 0.5 };
+    }
+    const travelShare = weights.travel / weightTotal;
+    return { travelShare, ratingShare: 1 - travelShare };
   }
   const travelShare = travelStrength / total;
   return { travelShare, ratingShare: 1 - travelShare };
@@ -89,16 +98,20 @@ export function explainVenue(
   const { travelShare, ratingShare } = strengthShares(venue, weights);
 
   if (!venue.reachable) {
+    const reachableNote =
+      venue.maxSeconds > 0
+        ? ` Among those who can reach it, the worst trip is ${formatDuration(venue.maxSeconds)}.`
+        : "";
     return {
       headline: "Not everyone can reach this one",
-      detail: `At least one person has no route here, so it ranks below places everyone can get to. The worst trip is ${formatDuration(venue.maxSeconds)}.`,
+      detail: `At least one person has no route here, so it ranks below places everyone can get to.${reachableNote}`,
       travelShare,
       ratingShare,
     };
   }
 
   let headline: string;
-  if (venue.normalizedTravel <= 0.15) {
+  if (venue.normalizedTravel <= VERY_GOOD_TRAVEL_THRESHOLD) {
     headline = OBJECTIVE_HEADLINE[objective];
   } else if (ratingShare > travelShare) {
     headline = "Higher rated, slightly longer for most";
