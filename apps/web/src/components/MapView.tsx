@@ -114,9 +114,9 @@ export function MapView({ origins, venues, seed, selectedId, onSelect }: MapView
       });
       marker.bindPopup(venuePopupHtml(venue, index + 1), {
         className: "map-popup-shell",
-        minWidth: 200,
-        maxWidth: 264,
-        autoPanPadding: [24, 24],
+        minWidth: 248,
+        maxWidth: 320,
+        autoPanPadding: [24, 32],
       });
       marker.on("click", () => onSelectRef.current(venue.id));
       marker.addTo(layer);
