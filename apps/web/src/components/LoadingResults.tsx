@@ -23,7 +23,10 @@ export function LoadingResults() {
   }, []);
 
   return (
-    <div className="results" aria-busy="true" aria-live="polite">
+    <div className="results" aria-busy="true">
+      <p className="stages__status" role="status" aria-live="polite" aria-atomic="true">
+        {STAGES[stage]}…
+      </p>
       <ol className="stages">
         {STAGES.map((label, index) => {
           const state =
