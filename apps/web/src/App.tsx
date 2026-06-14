@@ -8,7 +8,7 @@ import {
   type TravelMode,
   type VenueCategory,
 } from "@meetup/core";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { geocode, reverseGeocode, search } from "./api";
 import { AdvancedControls, type TransitRoutingChoice } from "./components/AdvancedControls";
 import { CategoryPicker } from "./components/CategoryPicker";
@@ -18,6 +18,12 @@ import { ModePicker } from "./components/ModePicker";
 import { OriginsForm } from "./components/OriginsForm";
 import { ResultsList } from "./components/ResultsList";
 import type { Person } from "./types";
+import {
+  buildShareUrl,
+  readSearchStateFromUrl,
+  type SearchUrlState,
+  writeSearchStateToUrl,
+} from "./urlState";
 import { useTheme } from "./useTheme";
 
 const MAX_PEOPLE = 10;
@@ -50,6 +56,22 @@ function newPerson(): Person {
     label: "",
     address: "",
     status: "idle",
+  };
+}
+
+function formatCoords(location: { lat: number; lng: number }): string {
+  return `${location.lat}, ${location.lng}`;
+}
+
+function personFromUrlOrigin(origin: SearchUrlState["origins"][number]): Person {
+  const coords = formatCoords(origin.location);
+  return {
+    id: crypto.randomUUID(),
+    label: origin.label,
+    address: origin.label.trim() || coords,
+    location: origin.location,
+    resolvedAddress: coords,
+    status: "ok",
   };
 }
 
@@ -129,6 +151,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResponseBody | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   function updatePerson(id: string, patch: Partial<Person>) {
     setPeople((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -223,6 +246,68 @@ export function App() {
   const readyCount = people.filter((p) => p.address.trim().length > 0).length;
   const canSearch = readyCount >= 2 && !loading;
 
+  async function executeSearch(
+    origins: Array<{ id: string; label: string; location: { lat: number; lng: number } }>,
+    options: {
+      category: VenueCategory;
+      mode: TravelMode;
+      objective: Objective;
+      ratingWeight: number;
+      limit: number;
+      openNow: boolean;
+      meetTime: string;
+      excludeBuses: boolean;
+      transitRouting: TransitRoutingChoice;
+    },
+  ) {
+    if (origins.length < 2) {
+      setError("Enter at least two valid locations to find a meeting spot.");
+      return;
+    }
+
+    const usesMeetTime = options.category === "lunch" || options.category === "dinner";
+    const body: SearchRequestBody = {
+      origins,
+      category: options.category,
+      mode: options.mode,
+      objective: options.objective,
+      travelWeight: Number((1 - options.ratingWeight).toFixed(2)),
+      ratingWeight: Number(options.ratingWeight.toFixed(2)),
+      limit: options.limit,
+      openNow: options.openNow,
+      meetTime: usesMeetTime && options.meetTime ? options.meetTime : undefined,
+      transit: buildTransitPreferences(options.mode, options.excludeBuses, options.transitRouting),
+    };
+
+    setLoading(true);
+    try {
+      const response = await search(body);
+      setResult(response);
+      setSelectedId(response.venues[0]?.id ?? null);
+
+      const urlState: SearchUrlState = {
+        origins: origins.map((origin) => ({ label: origin.label, location: origin.location })),
+        category: options.category,
+        mode: options.mode,
+        objective: options.objective,
+        ratingWeight: options.ratingWeight,
+        limit: options.limit,
+        openNow: options.openNow,
+        meetTime: options.meetTime,
+        excludeBuses: options.excludeBuses,
+        transitRouting: options.transitRouting,
+      };
+      writeSearchStateToUrl(urlState);
+      setShareUrl(buildShareUrl(urlState));
+    } catch (searchError) {
+      const message = searchError instanceof Error ? searchError.message : "Search failed";
+      setError(message);
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSearch() {
     setError(null);
 
@@ -240,38 +325,76 @@ export function App() {
         location: p.location!,
       }));
 
-    if (origins.length < 2) {
-      setError("Enter at least two valid locations to find a meeting spot.");
-      return;
-    }
-
-    const usesMeetTime = category === "lunch" || category === "dinner";
-    const body: SearchRequestBody = {
-      origins,
+    await executeSearch(origins, {
       category,
       mode,
       objective,
-      travelWeight: Number((1 - ratingWeight).toFixed(2)),
-      ratingWeight: Number(ratingWeight.toFixed(2)),
+      ratingWeight,
       limit,
       openNow,
-      meetTime: usesMeetTime && meetTime ? meetTime : undefined,
-      transit: buildTransitPreferences(mode, excludeBuses, transitRouting),
-    };
-
-    setLoading(true);
-    try {
-      const response = await search(body);
-      setResult(response);
-      setSelectedId(response.venues[0]?.id ?? null);
-    } catch (searchError) {
-      const message = searchError instanceof Error ? searchError.message : "Search failed";
-      setError(message);
-      setResult(null);
-    } finally {
-      setLoading(false);
-    }
+      meetTime,
+      excludeBuses,
+      transitRouting,
+    });
   }
+
+  const didLoadFromUrl = useRef(false);
+  useEffect(() => {
+    if (didLoadFromUrl.current) {
+      return;
+    }
+    didLoadFromUrl.current = true;
+
+    const urlState = readSearchStateFromUrl();
+    if (!urlState) {
+      return;
+    }
+
+    setCategory(urlState.category);
+    setMode(urlState.mode);
+    setObjective(urlState.objective);
+    setRatingWeight(urlState.ratingWeight);
+    setLimit(urlState.limit);
+    setOpenNow(urlState.openNow);
+    setMeetTime(urlState.meetTime);
+    setExcludeBuses(urlState.excludeBuses);
+    setTransitRouting(urlState.transitRouting);
+    if (
+      urlState.objective !== SEARCH_DEFAULTS.objective ||
+      urlState.ratingWeight !== SEARCH_DEFAULTS.ratingWeight ||
+      urlState.limit !== SEARCH_DEFAULTS.limit ||
+      urlState.openNow ||
+      urlState.meetTime ||
+      urlState.excludeBuses ||
+      urlState.transitRouting !== "any"
+    ) {
+      setShowAdvanced(true);
+    }
+
+    const loadedPeople = urlState.origins.slice(0, MAX_PEOPLE).map(personFromUrlOrigin);
+    setPeople(loadedPeople);
+
+    if (loadedPeople.length >= 2) {
+      const origins = loadedPeople.map((p, index) => ({
+        id: p.id,
+        label: p.label.trim() || `Person ${index + 1}`,
+        location: p.location!,
+      }));
+      void executeSearch(origins, {
+        category: urlState.category,
+        mode: urlState.mode,
+        objective: urlState.objective,
+        ratingWeight: urlState.ratingWeight,
+        limit: urlState.limit,
+        openNow: urlState.openNow,
+        meetTime: urlState.meetTime,
+        excludeBuses: urlState.excludeBuses,
+        transitRouting: urlState.transitRouting,
+      });
+    }
+    // Runs once on mount to hydrate from a shared link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showMap = mapOrigins.length > 0 || (result?.venues.length ?? 0) > 0;
 
@@ -382,7 +505,12 @@ export function App() {
           {loading ? (
             <LoadingResults />
           ) : result ? (
-            <ResultsList result={result} selectedId={selectedId} onSelect={setSelectedId} />
+            <ResultsList
+              result={result}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              shareUrl={shareUrl}
+            />
           ) : (
             <div className="state state--empty">
               <h2>Find the fairest place to meet</h2>

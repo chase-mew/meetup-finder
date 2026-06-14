@@ -26,7 +26,8 @@ interface Intermediate {
   normalizedRating: number;
 }
 
-function normalizeWeights(weights: ScoreWeights): ScoreWeights {
+/** Normalise travel and rating weights so they sum to 1, falling back to defaults. */
+export function normalizeWeights(weights: ScoreWeights): ScoreWeights {
   const sum = weights.travel + weights.rating;
   if (sum <= 0) {
     return DEFAULT_WEIGHTS;

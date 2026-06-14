@@ -624,10 +624,22 @@ input[type="range"] {
   padding: 18px 20px 30px;
 }
 
+.results__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
 .results__summary {
   font-size: 14px;
   color: var(--muted);
-  margin-bottom: 14px;
+}
+
+.results__share {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .results__summary strong {
@@ -1030,6 +1042,107 @@ input[type="range"] {
   color: var(--muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* Why this place ---------------------------------------------------------- */
+
+.why {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.why__summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.why__summary::-webkit-details-marker {
+  display: none;
+}
+
+.why__summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.why[open] .why__summary::after {
+  content: "\2212";
+}
+
+.why__title {
+  font-weight: 650;
+  color: var(--accent);
+}
+
+.why__headline {
+  color: var(--muted);
+}
+
+.why__body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.why__detail {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.why__bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eef0f3;
+}
+
+.why__bar-travel {
+  background: var(--accent);
+}
+
+.why__bar-rating {
+  background: var(--star);
+}
+
+.why__legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.why__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.why__legend-item::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.why__legend-item--travel::before {
+  background: var(--accent);
+}
+
+.why__legend-item--rating::before {
+  background: var(--star);
 }
 
 /* Map pins ---------------------------------------------------------------- */

@@ -1,5 +1,6 @@
-import type { ResultVenue } from "@meetup/core";
+import type { Objective, ResultVenue, ScoreWeights } from "@meetup/core";
 import { photoUrl } from "../api";
+import { explainVenue } from "../explain";
 import { formatDuration, formatPriceLevel } from "../format";
 import { Stars } from "./Stars";
 import { TravelBars } from "./TravelBars";
@@ -8,12 +9,25 @@ interface VenueCardProps {
   venue: ResultVenue;
   rank: number;
   scaleSeconds: number;
+  objective: Objective;
+  weights: ScoreWeights;
   selected: boolean;
   onSelect: (id: string) => void;
 }
 
-export function VenueCard({ venue, rank, scaleSeconds, selected, onSelect }: VenueCardProps) {
+export function VenueCard({
+  venue,
+  rank,
+  scaleSeconds,
+  objective,
+  weights,
+  selected,
+  onSelect,
+}: VenueCardProps) {
   const price = formatPriceLevel(venue.priceLevel);
+  const explanation = explainVenue(venue, objective, weights);
+  const travelPct = Math.round(explanation.travelShare * 100);
+  const ratingPct = 100 - travelPct;
 
   return (
     <article
@@ -70,6 +84,32 @@ export function VenueCard({ venue, rank, scaleSeconds, selected, onSelect }: Ven
           scaleSeconds={scaleSeconds}
           highlightMaxSeconds={venue.maxSeconds}
         />
+
+        <details className="why" onClick={(event) => event.stopPropagation()}>
+          <summary className="why__summary">
+            <span className="why__title">Why this place</span>
+            <span className="why__headline">{explanation.headline}</span>
+          </summary>
+          <div className="why__body">
+            <p className="why__detail">{explanation.detail}</p>
+            <div
+              className="why__bar"
+              role="img"
+              aria-label={`Travel drives ${travelPct}% and rating ${ratingPct}% of this ranking.`}
+            >
+              <span className="why__bar-travel" style={{ width: `${travelPct}%` }} />
+              <span className="why__bar-rating" style={{ width: `${ratingPct}%` }} />
+            </div>
+            <div className="why__legend">
+              <span className="why__legend-item why__legend-item--travel">
+                Travel {travelPct}%
+              </span>
+              <span className="why__legend-item why__legend-item--rating">
+                Rating {ratingPct}%
+              </span>
+            </div>
+          </div>
+        </details>
 
         <div className="venue__actions">
           {venue.googleMapsUri ? (
