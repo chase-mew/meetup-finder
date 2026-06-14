@@ -1,4 +1,5 @@
 import {
+  type LatLng,
   type Objective,
   type Origin,
   type ResultLeg,
@@ -11,6 +12,7 @@ import {
   weightedGeometricMedian,
 } from "@meetup/core";
 import type { Place, PlacesProvider, TravelProvider } from "@meetup/providers";
+import { type AreaFinderConfig, DEFAULT_AREA_CONFIG, findMeetingAreas } from "./areas";
 
 export interface SearchDeps {
   places: PlacesProvider;
@@ -18,18 +20,24 @@ export interface SearchDeps {
 }
 
 export interface SearchConfig {
-  /** How many venues to keep before the travel matrix. Controls cost. */
+  /** How many venues to keep before the venue travel matrix. Controls cost. */
   candidateLimit: number;
   /** How many results to return. */
   defaultLimit: number;
-  /** How many pages of places (20 each) to gather before pruning. */
+  /** How many pages of places (20 each) to gather per area before pruning. */
   searchPages: number;
+  /** Venue search radius around each chosen meeting area, in metres. */
+  areaRadiusMeters: number;
+  /** Configuration for the travel-time area finding stage. */
+  area: AreaFinderConfig;
 }
 
 export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
-  candidateLimit: 18,
+  candidateLimit: 24,
   defaultLimit: 8,
-  searchPages: 3,
+  searchPages: 2,
+  areaRadiusMeters: 1_300,
+  area: DEFAULT_AREA_CONFIG,
 };
 
 const DEFAULT_OBJECTIVE: Objective = "best";
@@ -58,15 +66,21 @@ export function deriveSearchRadius(
  * is a cheap pre-filter; the final ranking still uses real travel times.
  */
 export function preselectCandidates(
-  seed: { lat: number; lng: number },
+  centers: LatLng[],
   places: Place[],
   limit: number,
 ): Place[] {
+  // With no centre there is no proximity signal; just cap to the limit.
+  if (centers.length === 0) {
+    return places.slice(0, Math.max(0, limit));
+  }
   if (places.length <= limit) {
     return places;
   }
 
-  const distances = places.map((place) => haversineMeters(seed, place.location));
+  const distances = places.map((place) =>
+    Math.min(...centers.map((center) => haversineMeters(center, place.location))),
+  );
   const ratings = places.map((place) => bayesianRating(place.rating, place.ratingCount));
   const maxDistance = Math.max(...distances, 1);
   const minRating = Math.min(...ratings);
@@ -84,6 +98,19 @@ export function preselectCandidates(
     .map((entry) => entry.place);
 }
 
+/** Remove duplicate venues that appear in more than one area's search. */
+export function dedupePlacesById(places: Place[]): Place[] {
+  const seen = new Set<string>();
+  const unique: Place[] = [];
+  for (const place of places) {
+    if (!seen.has(place.id)) {
+      seen.add(place.id);
+      unique.push(place);
+    }
+  }
+  return unique;
+}
+
 /**
  * Run the full meeting point search pipeline:
  * seed, venue search, prune, travel matrix, score, assemble.
@@ -98,29 +125,38 @@ export async function runSearch(
     throw new Error("At least one origin is required");
   }
 
-  const seed = weightedGeometricMedian(
+  const objective = body.objective ?? DEFAULT_OBJECTIVE;
+  const median = weightedGeometricMedian(
     origins.map((o) => o.location),
     origins.map((o) => o.weight ?? 1),
   );
 
-  const searchRadiusMeters =
-    body.searchRadiusMeters ?? deriveSearchRadius(seed, origins);
+  // Stage one: find the best meeting areas by real travel time, not geometry.
+  const areas = await findMeetingAreas(deps.travel, origins, body.mode, objective, config.area);
+  const centers: LatLng[] = areas.length > 0 ? areas.map((a) => a.center) : [median];
+  const primaryCenter = centers[0]!;
 
-  const found = await deps.places.search({
-    center: seed,
-    radiusMeters: searchRadiusMeters,
-    category: body.category,
-    maxPages: config.searchPages,
-    openNow: body.openNow,
-  });
+  const searchRadiusMeters = body.searchRadiusMeters ?? config.areaRadiusMeters;
 
-  const candidates = preselectCandidates(seed, found, config.candidateLimit);
+  // Stage two: gather venues around each chosen area (in parallel) and dedupe.
+  const pools = await Promise.all(
+    centers.map((center) =>
+      deps.places.search({
+        center,
+        radiusMeters: searchRadiusMeters,
+        category: body.category,
+        maxPages: config.searchPages,
+        openNow: body.openNow,
+      }),
+    ),
+  );
+  const found = dedupePlacesById(pools.flat());
 
-  const objective = body.objective ?? DEFAULT_OBJECTIVE;
+  const candidates = preselectCandidates(centers, found, config.candidateLimit);
 
   if (candidates.length === 0) {
     return {
-      seed,
+      seed: primaryCenter,
       origins,
       category: body.category,
       mode: body.mode,
@@ -215,7 +251,7 @@ export async function runSearch(
   });
 
   return {
-    seed,
+    seed: primaryCenter,
     origins,
     category: body.category,
     mode: body.mode,
