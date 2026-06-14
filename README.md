@@ -134,8 +134,4 @@ Secrets:
 Variable:
 - `VITE_API_BASE_URL` the deployed Worker URL.
 
-One time, create the Pages project so the deploy is non interactive:
-
-```bash
-npx wrangler pages project create meetup-finder --production-branch main
-```
+The Pages project is created automatically on the first deploy if it does not already exist.

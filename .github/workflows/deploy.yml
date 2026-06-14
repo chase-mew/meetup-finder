@@ -12,8 +12,8 @@ name: Deploy
 #   VITE_API_BASE_URL      The deployed Worker URL, e.g.
 #                          https://meetup-finder-api.<subdomain>.workers.dev
 #
-# One time setup: create the Pages project first so the deploy is non interactive:
-#   npx wrangler pages project create meetup-finder --production-branch main
+# The Pages project is created automatically on the first run if it does not
+# exist, so no manual setup is needed.
 
 on:
   push:
@@ -80,6 +80,12 @@ jobs:
         run: pnpm --filter @meetup/web build
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
+      - name: Ensure Pages project exists
+        run: pnpm exec wrangler pages project create meetup-finder --production-branch main || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
