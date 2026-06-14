@@ -11,12 +11,16 @@ export type TravelMode = "transit" | "walking" | "cycling" | "driving";
 export type VenueCategory = "cafe" | "lunch" | "dinner" | "pub";
 
 /**
- * Fairness objective used to score how good a venue is for the group.
+ * Travel cost objective used to score how good a venue is for the group.
  * - min_total: minimise the sum of travel times (most efficient overall).
- * - min_max: minimise the worst single travel time (fairest, the default).
+ * - min_max: minimise the worst single travel time (fairest).
  * - min_variance: make travel times as even as possible across people.
+ * - best: balance all three by averaging their normalised costs (the default).
  */
-export type Objective = "min_total" | "min_max" | "min_variance";
+export type Objective = "min_total" | "min_max" | "min_variance" | "best";
+
+/** The concrete objectives that can be computed directly from durations. */
+export type BaseObjective = Exclude<Objective, "best">;
 
 /** A person starting point. */
 export interface Origin {

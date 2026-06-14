@@ -37,6 +37,14 @@ describe("validateSearchRequest", () => {
     expect(validateSearchRequest({ ...validBody, category: "nightclub" }).ok).toBe(false);
   });
 
+  it("accepts the best objective", () => {
+    const result = validateSearchRequest({ ...validBody, objective: "best" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.objective).toBe("best");
+    }
+  });
+
   it("rejects cycling, which the matrix cannot do", () => {
     expect(validateSearchRequest({ ...validBody, mode: "cycling" }).ok).toBe(false);
   });

@@ -3,6 +3,7 @@ export type {
   TravelMode,
   VenueCategory,
   Objective,
+  BaseObjective,
   Origin,
   ScoreWeights,
   RatingPrior,

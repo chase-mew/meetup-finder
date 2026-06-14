@@ -1,6 +1,7 @@
 import type { Objective } from "@meetup/core";
 
 const OBJECTIVES: Array<{ value: Objective; label: string; hint: string }> = [
+  { value: "best", label: "Best", hint: "Balances all three goals below" },
   { value: "min_max", label: "Fairest", hint: "Nobody travels too far" },
   { value: "min_total", label: "Most efficient", hint: "Lowest total travel time" },
   { value: "min_variance", label: "Most even", hint: "Everyone travels about the same" },

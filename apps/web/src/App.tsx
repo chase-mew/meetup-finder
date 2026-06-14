@@ -60,7 +60,7 @@ export function App() {
   const [people, setPeople] = useState<Person[]>(() => [newPerson(), newPerson()]);
   const [category, setCategory] = useState<VenueCategory>("cafe");
   const [mode, setMode] = useState<TravelMode>("transit");
-  const [objective, setObjective] = useState<Objective>("min_max");
+  const [objective, setObjective] = useState<Objective>("best");
   const [ratingWeight, setRatingWeight] = useState(0.3);
   const [limit, setLimit] = useState(5);
   const [openNow, setOpenNow] = useState(false);

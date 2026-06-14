@@ -1,6 +1,8 @@
-import { objectiveCost, maxSeconds, totalSeconds, varianceSeconds } from "./objectives";
+import { maxSeconds, objectiveCost, totalSeconds, varianceSeconds } from "./objectives";
 import { DEFAULT_RATING_PRIOR, bayesianRating, normalizeRating } from "./rating";
 import type {
+  BaseObjective,
+  Objective,
   ScoreOptions,
   ScoreWeights,
   ScoredCandidate,
@@ -9,11 +11,13 @@ import type {
 
 const DEFAULT_WEIGHTS: ScoreWeights = { travel: 0.7, rating: 0.3 };
 
+// The components averaged together for the "best" objective.
+const BASE_OBJECTIVES: BaseObjective[] = ["min_total", "min_max", "min_variance"];
+
 interface Intermediate {
   candidate: ScoringCandidate;
   reachable: boolean;
   durations: number[];
-  objectiveCostSeconds: number;
   totalSeconds: number;
   maxSeconds: number;
   varianceSeconds: number;
@@ -28,6 +32,58 @@ function normalizeWeights(weights: ScoreWeights): ScoreWeights {
     return DEFAULT_WEIGHTS;
   }
   return { travel: weights.travel / sum, rating: weights.rating / sum };
+}
+
+/** Normalise objective costs to 0..1 across the reachable candidates. */
+function normalizeCosts(costs: number[], reachable: boolean[]): number[] {
+  const reachableCosts = costs.filter((_, i) => reachable[i]);
+  if (reachableCosts.length === 0) {
+    return costs.map(() => 1);
+  }
+  const min = Math.min(...reachableCosts);
+  const max = Math.max(...reachableCosts);
+  const span = max - min;
+  return costs.map((cost, i) => (reachable[i] ? (span > 0 ? (cost - min) / span : 0) : 1));
+}
+
+function costsForObjective(objective: BaseObjective, items: Intermediate[]): number[] {
+  return items.map((item) =>
+    item.durations.length > 0 ? objectiveCost(objective, item.durations) : 0,
+  );
+}
+
+/**
+ * Per candidate travel score in 0..1 (0 best, 1 worst).
+ *
+ * For a single objective this is just that objective normalised across the set.
+ * For "best" we normalise each of the three base objectives independently and
+ * average them, so efficiency, worst case fairness, and evenness all count on
+ * the same scale regardless of their very different raw magnitudes.
+ */
+function normalizedTravelScores(
+  objective: Objective,
+  items: Intermediate[],
+  reachable: boolean[],
+): number[] {
+  if (objective === "best") {
+    const components = BASE_OBJECTIVES.map((base) =>
+      normalizeCosts(costsForObjective(base, items), reachable),
+    );
+    return items.map((_, i) => {
+      const sum = components.reduce((acc, component) => acc + component[i]!, 0);
+      return sum / components.length;
+    });
+  }
+  return normalizeCosts(costsForObjective(objective, items), reachable);
+}
+
+/** A representative travel time in seconds for display. */
+function headlineCostSeconds(objective: Objective, item: Intermediate): number {
+  if (item.durations.length === 0) {
+    return 0;
+  }
+  // "best" has no single seconds value, so report the worst trip as the headline.
+  return objective === "best" ? item.maxSeconds : objectiveCost(objective, item.durations);
 }
 
 /**
@@ -60,7 +116,6 @@ export function scoreVenues(
       candidate,
       reachable,
       durations,
-      objectiveCostSeconds: durations.length > 0 ? objectiveCost(options.objective, durations) : 0,
       totalSeconds: totalSeconds(durations),
       maxSeconds: maxSeconds(durations),
       varianceSeconds: varianceSeconds(durations),
@@ -70,22 +125,12 @@ export function scoreVenues(
     };
   });
 
-  const reachableCosts = intermediates
-    .filter((entry) => entry.reachable)
-    .map((entry) => entry.objectiveCostSeconds);
-  const minCost = reachableCosts.length > 0 ? Math.min(...reachableCosts) : 0;
-  const maxCost = reachableCosts.length > 0 ? Math.max(...reachableCosts) : 0;
-  const costSpan = maxCost - minCost;
+  const reachable = intermediates.map((entry) => entry.reachable);
+  const normalizedTravel = normalizedTravelScores(options.objective, intermediates, reachable);
 
-  const scored: ScoredCandidate[] = intermediates.map((entry) => {
-    const normalizedTravel = entry.reachable
-      ? costSpan > 0
-        ? (entry.objectiveCostSeconds - minCost) / costSpan
-        : 0
-      : 1;
-
+  const scored: ScoredCandidate[] = intermediates.map((entry, i) => {
     const reachableScore =
-      weights.travel * normalizedTravel + weights.rating * (1 - entry.normalizedRating);
+      weights.travel * normalizedTravel[i]! + weights.rating * (1 - entry.normalizedRating);
 
     // Unreachable venues always sort after reachable ones, worst first.
     const finalScore = entry.reachable ? reachableScore : 1 + entry.unreachableCount;
@@ -93,11 +138,11 @@ export function scoreVenues(
     return {
       id: entry.candidate.id,
       reachable: entry.reachable,
-      objectiveCostSeconds: entry.objectiveCostSeconds,
+      objectiveCostSeconds: headlineCostSeconds(options.objective, entry),
       totalSeconds: entry.totalSeconds,
       maxSeconds: entry.maxSeconds,
       varianceSeconds: entry.varianceSeconds,
-      normalizedTravel,
+      normalizedTravel: normalizedTravel[i]!,
       bayesianRating: entry.bayesianRating,
       normalizedRating: entry.normalizedRating,
       finalScore,

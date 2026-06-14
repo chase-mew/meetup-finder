@@ -68,7 +68,7 @@ describe("runSearch", () => {
 
     expect(result.seed.lat).toBeGreaterThan(51.5);
     expect(result.venues.length).toBeGreaterThan(0);
-    expect(result.objective).toBe("min_max");
+    expect(result.objective).toBe("best");
 
     const top = result.venues[0]!;
     expect(top.legs).toHaveLength(ORIGINS.length);
